@@ -429,3 +429,5 @@ See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for solutions to:
 ## 📄 License
 
 MIT © [Sbharadwaj05](https://github.com/Sbharadwaj05)
+
+Need custom detection rules, SIEM tuning, or an MCP server built? Topmate: https://topmate.io/subhash_bharadwaj or DM for Fiverr gig links.
