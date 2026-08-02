@@ -56,8 +56,64 @@ MODE_FIELDS: Dict[str, str] = {
     # Fleet management: agent view
     "fleet": (
         "id,name,status,ip,os.name,os.version,os.platform,"
-        "version,last_keepalive,group,node_name,config_summary"
+        "version,lastKeepAlive,group,node_name,configSum"
     ),
+}
+
+# ---------------------------------------------------------------------------
+# Agent endpoint field sets
+# ---------------------------------------------------------------------------
+# GET /agents rejects the whole request with a 400 if *any* select field is
+# outside this list, so the alert-shaped sets above (rule.*, data.*, decoder.*)
+# can never be sent there. This is the allowed list as of Wazuh 4.14.
+AGENT_SELECT_FIELDS = frozenset(
+    {
+        "configSum",
+        "dateAdd",
+        "disconnection_time",
+        "group",
+        "group_config_status",
+        "id",
+        "ip",
+        "lastKeepAlive",
+        "manager",
+        "mergedSum",
+        "name",
+        "node_name",
+        "os.arch",
+        "os.build",
+        "os.codename",
+        "os.major",
+        "os.minor",
+        "os.name",
+        "os.platform",
+        "os.uname",
+        "os.version",
+        "registerIP",
+        "status",
+        "status_code",
+        "version",
+    }
+)
+
+# What each output mode means for an agent listing. Every mode maps to
+# something valid, so a caller asking for 'triage' on an agent tool gets a
+# sensible agent view instead of a 400.
+AGENT_MODE_FIELDS: Dict[str, str] = {
+    "triage": "id,name,status,ip,os.name,version,lastKeepAlive",
+    "fleet": (
+        "id,name,status,ip,os.name,os.version,os.platform,"
+        "version,lastKeepAlive,group,node_name,configSum"
+    ),
+    "detail": (
+        "id,name,status,status_code,ip,registerIP,manager,node_name,group,"
+        "group_config_status,os.name,os.version,os.platform,os.arch,os.uname,"
+        "version,dateAdd,lastKeepAlive,disconnection_time,configSum,mergedSum"
+    ),
+    # Neither of these is an agent-shaped question, so give the minimum
+    # identifying view rather than erroring.
+    "compliance": "id,name,status,os.name,os.version,group",
+    "hunting": "id,name,ip,os.name,status,lastKeepAlive",
 }
 
 # Fields to ALWAYS strip from output to save tokens
@@ -78,6 +134,30 @@ _VERBOSE_META = {
 def get_select_for_mode(mode: str) -> Optional[str]:
     """Return the 'select' parameter string for a named mode, or None."""
     return MODE_FIELDS.get(mode)
+
+
+def get_agent_select_for_mode(mode: str) -> str:
+    """
+    Return a 'select' string valid for the /agents endpoint.
+
+    Unlike get_select_for_mode, this never returns None and never returns
+    alert fields — an unknown mode falls back to the fleet view.
+    """
+    return AGENT_MODE_FIELDS.get(mode) or AGENT_MODE_FIELDS["fleet"]
+
+
+def filter_agent_select(select: Optional[str]) -> Optional[str]:
+    """
+    Drop any field the /agents endpoint would reject.
+
+    A single unrecognised field makes Wazuh 400 the entire request, so it is
+    better to silently return fewer columns than to fail the call. Returns
+    None if nothing survives, which means 'let the API return its default'.
+    """
+    if not select:
+        return None
+    kept = [f.strip() for f in select.split(",") if f.strip() in AGENT_SELECT_FIELDS]
+    return ",".join(kept) if kept else None
 
 
 def compact(data: Any, *, max_items: int = 10) -> Any:

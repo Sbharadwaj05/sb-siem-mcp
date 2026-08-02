@@ -107,14 +107,14 @@ def sanitize(data: Any, *, max_depth: int = 10) -> Any:
     if isinstance(data, dict):
         sanitized: Dict[str, Any] = {}
         for key, value in data.items():
-            # Redact sensitive field names
-            safe_key = key
-            if key.lower() in SENSITIVE_FIELDS:
+            # Keys are not always strings — aggregation counters keyed on
+            # numeric fields (rule.level, for one) produce int keys.
+            if isinstance(key, str) and key.lower() in SENSITIVE_FIELDS:
                 sanitized[key] = "***REDACTED***"
                 continue
 
             # Recursively sanitize nested values
-            sanitized[safe_key] = sanitize(value, max_depth=max_depth - 1)
+            sanitized[key] = sanitize(value, max_depth=max_depth - 1)
         return sanitized
 
     if isinstance(data, list):
