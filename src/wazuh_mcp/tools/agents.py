@@ -15,7 +15,7 @@ import mcp.types as types
 from mcp.server.fastmcp import FastMCP
 
 from wazuh_mcp.client import WazuhClient
-from wazuh_mcp.output import compact, get_select_for_mode
+from wazuh_mcp.output import compact, filter_agent_select, get_agent_select_for_mode
 from wazuh_mcp.safe_tool import safe_tool
 from wazuh_mcp.utils import extract_items, extract_total, format_json, paginated_result
 from wazuh_mcp.validators import (
@@ -54,7 +54,7 @@ def register_agents(mcp: FastMCP, client: WazuhClient) -> None:
         ),
         sort: Optional[str] = types.Field(
             default=None,
-            description="Sort field, prefix with '-' for descending (e.g., '-last_keepalive')",
+            description="Sort field, prefix with '-' for descending (e.g., '-lastKeepAlive')",
         ),
         limit: int = types.Field(
             default=50,
@@ -85,8 +85,9 @@ def register_agents(mcp: FastMCP, client: WazuhClient) -> None:
         limit = validate_limit(limit, max_limit=500)
         offset = validate_offset(offset)
 
-        # Resolve select from mode if available
-        select = get_select_for_mode(mode)
+        # /agents only accepts agent fields — the alert-shaped mode sets used
+        # by the alert tools would 400 the whole request.
+        select = filter_agent_select(get_agent_select_for_mode(mode))
 
         data = await client.list_agents(
             status=status,

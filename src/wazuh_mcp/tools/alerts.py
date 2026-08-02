@@ -242,7 +242,16 @@ def register_alerts(mcp: FastMCP, client: WazuhClient) -> None:
             "total_alerts_available": total,
             "time_window_hours": hours_back,
             "min_level": min_level,
-            "severity_distribution": dict(level_counts.most_common()),
+            # Levels are numeric; key them as strings and order by severity
+            # rather than by frequency, which is what a histogram wants.
+            "severity_distribution": {
+                str(level): count
+                for level, count in sorted(
+                    level_counts.items(),
+                    key=lambda kv: (isinstance(kv[0], int), kv[0]),
+                    reverse=True,
+                )
+            },
             "top_rules": dict(rule_counts.most_common(10)),
             "top_mitre_techniques": dict(mitre_counts.most_common(10)),
             "top_agents": dict(agent_counts.most_common(10)),
