@@ -9,9 +9,9 @@ FastMCP's argument handling and the tool body all execute. Only the Wazuh
 client is mocked, and assertions are made on what the tool returned and on
 how the client was called, never on a mock's own return value.
 
-Tests marked ``xfail(strict=True)`` document real defects found while
-writing this file. They are left unfixed on purpose and will start
-failing (XPASS) once the defect is fixed, so the marker gets removed.
+Defects found while writing this file were first committed as
+``xfail(strict=True)`` tests and fixed afterwards; git history shows the
+order.
 """
 
 from __future__ import annotations
@@ -22,7 +22,6 @@ from unittest.mock import AsyncMock
 
 import pytest
 from mcp.server.fastmcp import FastMCP
-from mcp.server.fastmcp.exceptions import ToolError
 
 from wazuh_mcp import audit, rate_limiter, rbac, safe_tool
 from wazuh_mcp.client import WazuhClient
@@ -309,52 +308,46 @@ class TestConfirmationGateAcrossTools:
         client.run_active_response.assert_not_called()
 
     async def test_token_rejected_when_arguments_differ(self, server, client):
-        # Called below FastMCP: see test_json_array_arguments_reach_the_tool
-        # for why an arguments value cannot get through call_tool today.
-        fn = server._tool_manager.get_tool(ACTIVE_RESPONSE).fn
-        common = dict(agent_id="001", command="firewall-drop", compact_output=False)
+        common = dict(agent_id="001", command="firewall-drop")
+        token = (
+            await call(server, ACTIVE_RESPONSE, **common, arguments='["srcip", "10.0.0.50", "-"]')
+        )["confirmation_token"]
 
-        issued = parse(
-            await fn(
-                **common,
-                arguments='["srcip", "10.0.0.50", "-"]',
-                confirm=False,
-                confirmation_token=None,
-            )
-        )
-        payload = parse(
-            await fn(
-                **common,
-                arguments='["srcip", "10.0.0.99", "-"]',
-                confirm=True,
-                confirmation_token=issued["confirmation_token"],
-            )
+        payload = await call(
+            server,
+            ACTIVE_RESPONSE,
+            **common,
+            arguments='["srcip", "10.0.0.99", "-"]',
+            confirm=True,
+            confirmation_token=token,
         )
 
         assert "different action" in payload["error"]
         client.run_active_response.assert_not_called()
 
-    @pytest.mark.xfail(
-        strict=True,
-        raises=ToolError,
-        reason=(
-            "FastMCP pre-parses any str argument whose annotation is not exactly "
-            "`str`. `arguments` is Optional[str], so the documented JSON array "
-            "string is turned into a list and then fails str validation. "
-            "Active responses that need arguments (firewall-drop srcip) cannot "
-            "be requested through MCP."
-        ),
+    @pytest.mark.parametrize(
+        "arguments",
+        ['["srcip", "10.0.0.50", "-"]', ["srcip", "10.0.0.50", "-"]],
+        ids=["json-string", "list"],
     )
-    async def test_json_array_arguments_reach_the_tool(self, server, client):
+    async def test_arguments_reach_the_client(self, server, client, arguments):
+        """The documented JSON array string and a real array both work."""
+        common = dict(agent_id="003", command="firewall-drop", arguments=arguments)
+        issued = await call(server, ACTIVE_RESPONSE, **common)
+        assert issued["status"] == "AWAITING_CONFIRMATION"
+
         payload = await call(
             server,
             ACTIVE_RESPONSE,
-            agent_id="001",
-            command="firewall-drop",
-            arguments='["srcip", "10.0.0.50", "-"]',
+            **common,
+            confirm=True,
+            confirmation_token=issued["confirmation_token"],
         )
 
-        assert payload["status"] == "AWAITING_CONFIRMATION"
+        assert payload["status"] == "EXECUTED"
+        client.run_active_response.assert_awaited_once_with(
+            agent_id="003", command="firewall-drop", arguments=["srcip", "10.0.0.50", "-"]
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -397,14 +390,6 @@ class TestRBAC:
         assert enforcer._enabled is True
         assert enforcer.is_allowed(ACTIVE_RESPONSE)
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "README and rbac.py describe the built-in roles as hierarchical and "
-            "cumulative, but ROLE_TOOLS holds only each tier's additions, so "
-            "a higher role loses every lower-tier tool."
-        ),
-    )
     @pytest.mark.parametrize(
         "role, lower_tier_tool",
         [
@@ -462,14 +447,6 @@ class TestValidators:
         with pytest.raises(ValueError):
             validator(valid + payload)
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "Patterns use re.match with `$`, which also matches before a "
-            "trailing newline, so '001\\n' passes. Newline is a shell command "
-            "separator. re.fullmatch or `\\Z` would close it."
-        ),
-    )
     @pytest.mark.parametrize("validator, valid", VALIDATORS)
     def test_rejects_trailing_newline(self, validator, valid):
         with pytest.raises(ValueError):
@@ -524,16 +501,6 @@ class TestSanitizer:
 
 
 class TestSSEEntryPoint:
-    @pytest.mark.xfail(
-        strict=True,
-        raises=TypeError,
-        reason=(
-            "main_sse() passes host= and port= to FastMCP.run(), which only "
-            "accepts transport and mount_path in mcp 1.x. SSE mode, the Docker "
-            "image's default entrypoint, raises TypeError on start, so "
-            "WAZUH_MCP_HOST and WAZUH_MCP_PORT never take effect."
-        ),
-    )
     def test_main_sse_starts_bound_to_localhost(self, monkeypatch):
         from wazuh_mcp import metrics, server
 
@@ -542,10 +509,15 @@ class TestSSEEntryPoint:
         async def fake_run_sse_async(*args, **kwargs):
             started["host"] = server.mcp.settings.host
 
-        monkeypatch.setattr(metrics, "start_metrics_server", lambda port: None)
+        def fake_metrics(port, addr="0.0.0.0"):
+            started["metrics_addr"] = addr
+
+        monkeypatch.setattr(metrics, "start_metrics_server", fake_metrics)
         monkeypatch.setattr(server.mcp, "run_sse_async", fake_run_sse_async)
         monkeypatch.delenv("WAZUH_MCP_HOST", raising=False)
 
         server.main_sse()
 
         assert started["host"] == "127.0.0.1"
+        # prometheus_client's own default is every interface.
+        assert started["metrics_addr"] == "127.0.0.1"

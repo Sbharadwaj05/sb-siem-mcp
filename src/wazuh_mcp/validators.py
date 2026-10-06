@@ -31,7 +31,7 @@ DURATION_RE = re.compile(r"^\d+[smhd]$")  # e.g., "30s", "5m", "2h", "7d"
 
 def validate_agent_id(agent_id: str, param_name: str = "agent_id") -> str:
     """Validate a Wazuh agent ID (3-digit string like '001')."""
-    if not AGENT_ID_RE.match(agent_id):
+    if not AGENT_ID_RE.fullmatch(agent_id):
         raise ValueError(
             f"Invalid {param_name}: '{agent_id}'. Expected a 3-digit agent ID (e.g., '001')."
         )
@@ -40,7 +40,7 @@ def validate_agent_id(agent_id: str, param_name: str = "agent_id") -> str:
 
 def validate_ip(ip: str, param_name: str = "ip") -> str:
     """Validate an IPv4 address."""
-    if not IP_ADDRESS_RE.match(ip):
+    if not IP_ADDRESS_RE.fullmatch(ip):
         raise ValueError(
             f"Invalid {param_name}: '{ip}'. Expected a valid IPv4 address."
         )
@@ -49,7 +49,7 @@ def validate_ip(ip: str, param_name: str = "ip") -> str:
 
 def validate_cve(cve: str, param_name: str = "cve") -> str:
     """Validate a CVE ID (e.g., 'CVE-2024-3094')."""
-    if not CVE_RE.match(cve):
+    if not CVE_RE.fullmatch(cve):
         raise ValueError(
             f"Invalid {param_name}: '{cve}'. Expected format 'CVE-YYYY-NNNNN'."
         )
@@ -60,7 +60,7 @@ def validate_mitre_technique(
     technique_id: str, param_name: str = "technique_id"
 ) -> str:
     """Validate a MITRE ATT&CK technique ID (e.g., 'T1059', 'T1547.001')."""
-    if not MITRE_TECHNIQUE_RE.match(technique_id):
+    if not MITRE_TECHNIQUE_RE.fullmatch(technique_id):
         raise ValueError(
             f"Invalid {param_name}: '{technique_id}'. "
             "Expected format 'T####' or 'T####.###'."
@@ -70,7 +70,7 @@ def validate_mitre_technique(
 
 def validate_rule_id(rule_id: str, param_name: str = "rule_id") -> str:
     """Validate a Wazuh rule ID."""
-    if not RULE_ID_RE.match(rule_id):
+    if not RULE_ID_RE.fullmatch(rule_id):
         raise ValueError(
             f"Invalid {param_name}: '{rule_id}'. Expected a numeric rule ID (1-6 digits)."
         )
@@ -111,7 +111,7 @@ def validate_soft_text(
 
 def validate_duration(value: str, param_name: str = "older_than") -> str:
     """Validate a duration string (e.g., '30m', '2h', '7d')."""
-    if not DURATION_RE.match(value):
+    if not DURATION_RE.fullmatch(value):
         raise ValueError(
             f"Invalid {param_name}: '{value}'. Expected format like '30s', '5m', '2h', '7d'."
         )
@@ -120,7 +120,7 @@ def validate_duration(value: str, param_name: str = "older_than") -> str:
 
 def validate_compliance_id(control_id: str, param_name: str = "control_id") -> str:
     """Validate a compliance control ID (PCI, GDPR, HIPAA, NIST)."""
-    if not COMPLIANCE_ID_RE.match(control_id):
+    if not COMPLIANCE_ID_RE.fullmatch(control_id):
         raise ValueError(
             f"Invalid {param_name}: '{control_id}'. "
             "Expected alphanumeric with dots, underscores, or hyphens."
