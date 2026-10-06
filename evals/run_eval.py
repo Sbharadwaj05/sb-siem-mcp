@@ -323,15 +323,17 @@ def write_results_md() -> Path:
         lines.append("No runs yet.")
     else:
         lines += [
-            "| Date (UTC) | Model | Commit | Routing | Mode | Destructive | Total | File |",
-            "|---|---|---|---|---|---|---|---|",
+            "| Date (UTC) | Model | Commit | Scoring | Routing | Mode | Destructive | Total | File |",
+            "|---|---|---|---|---|---|---|---|---|",
         ]
         for path in runs:
             run = json.loads(path.read_text())
             s = run["summary"]
             cells = [f"{s[k]['passed']}/{s[k]['total']}" for k in (*KINDS, "all")]
+            # Runs before the first-turn scoring change carry no "scoring" key.
+            scoring = run["harness"].get("scoring", "first call only")
             lines.append(
-                f"| {run['date']} | `{run['model']}` | `{run['commit'][:12]}` | "
+                f"| {run['date']} | `{run['model']}` | `{run['commit'][:12]}` | {scoring} | "
                 + " | ".join(cells)
                 + f" | [{path.name}]({path.name}) |"
             )
