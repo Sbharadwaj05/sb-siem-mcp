@@ -516,3 +516,36 @@ class TestSanitizer:
         assert out["agent"]["id"] == "001"
         assert out["agent"]["config"][0]["user"] == "wazuh-wui"
         assert out["integrations"][0]["name"] == "virustotal"
+
+
+# ---------------------------------------------------------------------------
+# F. SSE entry point (localhost bind)
+# ---------------------------------------------------------------------------
+
+
+class TestSSEEntryPoint:
+    @pytest.mark.xfail(
+        strict=True,
+        raises=TypeError,
+        reason=(
+            "main_sse() passes host= and port= to FastMCP.run(), which only "
+            "accepts transport and mount_path in mcp 1.x. SSE mode, the Docker "
+            "image's default entrypoint, raises TypeError on start, so "
+            "WAZUH_MCP_HOST and WAZUH_MCP_PORT never take effect."
+        ),
+    )
+    def test_main_sse_starts_bound_to_localhost(self, monkeypatch):
+        from wazuh_mcp import metrics, server
+
+        started = {}
+
+        async def fake_run_sse_async(*args, **kwargs):
+            started["host"] = server.mcp.settings.host
+
+        monkeypatch.setattr(metrics, "start_metrics_server", lambda port: None)
+        monkeypatch.setattr(server.mcp, "run_sse_async", fake_run_sse_async)
+        monkeypatch.delenv("WAZUH_MCP_HOST", raising=False)
+
+        server.main_sse()
+
+        assert started["host"] == "127.0.0.1"
