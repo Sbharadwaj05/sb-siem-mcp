@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the Wazuh MCP Server project.
+All notable changes to the sb-siem-mcp project.
 
 ## [0.2.0] — 2026-06-11
 
@@ -51,7 +51,7 @@ Verified against Wazuh 4.14.5 on Ubuntu 22.04 with real agents, 7,514 alerts, 12
 - **README.md**: Architecture diagram, data source column on every tool, complete env var reference, config examples
 - **All `.env` and MCP config examples** updated with indexer credentials
 
-## [0.1.0] — 2024-06-10
+## [0.1.0] — 2026-06-10
 
 ### Initial Release
 - 16 MCP tools across 6 domains (alerts, hunting, compliance, agents, manager, response)
