@@ -114,11 +114,18 @@ Covers every commit after the 0.2.0 entry was written (`4303981`, 11 June
   `127.0.0.1`). `prometheus_client` binds every interface unless given an
   address, so in SSE mode `/metrics` listened on `0.0.0.0` while the MCP
   endpoint was on loopback.
+- **Fix: `wazuh_agent_health` counts agree.** `/agents` includes the
+  manager as agent 000 and `/agents/summary/status` does not, so
+  `total_agents` and `os_breakdown` counted one more agent than
+  `connection_summary` in the same reply. The manager is now left out of
+  every count. Disconnected agents also reported `last_keepalive: null`,
+  because the code read `last_keepalive` and the API field is
+  `lastKeepAlive`.
 - **Safety-layer tests (R6).** `tests/test_safety_layer.py` runs the real
   tools through `FastMCP.call_tool` with only `WazuhClient` mocked:
   confirmation gate, RBAC, rate limiting, validators, sanitizer and the SSE
   entry point. The four defects above were first committed as strict
-  xfails, then fixed. The suite grows from 26 to 95 passing tests, with
+  xfails, then fixed. The suite grows from 26 to 97 passing tests, with
   no xfails left.
 - **Model-behaviour eval (R7).** `evals/` holds 15 cases (9 routing, 3
   output-mode, 3 destructive-flow) and a harness that loads the real server
