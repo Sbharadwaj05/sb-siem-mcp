@@ -1,5 +1,5 @@
 """
-Regression tests for issues #2 and #3.
+Regression tests for issues #2, #3 and #7.
 
 These exercise the real functions rather than a mocked client — both bugs
 survived the existing suite because it asserts against AsyncMock return
@@ -10,16 +10,21 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from unittest.mock import AsyncMock
 
 import pytest
+from mcp.server.fastmcp import FastMCP
 
+from wazuh_mcp.client import WazuhClient
 from wazuh_mcp.output import (
     AGENT_SELECT_FIELDS,
     MODE_FIELDS,
+    compact,
     filter_agent_select,
     get_agent_select_for_mode,
 )
 from wazuh_mcp.sanitizer import sanitize
+from wazuh_mcp.tools.alerts import register_alerts
 from wazuh_mcp.utils import format_json
 
 
@@ -89,3 +94,33 @@ class TestAgentSelectFields:
         fleet = MODE_FIELDS["fleet"]
         assert "lastKeepAlive" in fleet and "last_keepalive" not in fleet
         assert "configSum" in fleet and "config_summary" not in fleet
+
+
+class TestCompactKeepsRequestedItems:
+    """Issue #7 — compact_output cut items to 10 while count still said 50."""
+
+    @pytest.mark.xfail(strict=True, reason="issue #7: compact() caps the envelope's items")
+    @pytest.mark.asyncio
+    async def test_list_alerts_compact_returns_every_requested_item(self):
+        client = AsyncMock(spec=WazuhClient)
+        client.list_alerts.return_value = {
+            "affected_items": [{"id": str(i), "rule": {"level": 10}} for i in range(50)],
+            "total_affected_items": 10000,
+        }
+        mcp = FastMCP("test")
+        register_alerts(mcp, client)
+
+        result = await mcp.call_tool(
+            "wazuh_list_alerts", {"limit": 50, "compact_output": True}
+        )
+        blocks = result[0] if isinstance(result, tuple) else result
+        out = json.loads(blocks[0].text)
+
+        assert len(out["items"]) == 50
+        assert out["count"] == len(out["items"])
+
+    def test_compact_still_caps_nested_lists(self):
+        """Token savings inside each item stay as they were."""
+        envelope = {"items": [{"tags": list(range(30))}], "count": 1, "limit": 50}
+
+        assert len(compact(envelope)["items"][0]["tags"]) == 10
