@@ -162,7 +162,7 @@ Covers every commit after the 0.2.0 entry was written (`4303981`, 11 June
   output-mode, 3 destructive-flow) and a harness that loads the real server
   prompt and tool schemas. It runs against Anthropic or DeepSeek, needs
   `EVAL_MODEL` plus that provider's API key, and
-  has no default model. Two runs on 2026-10-06 on deepseek-flash, both
+  has no default model. Three runs on 2026-10-06 on deepseek-flash, all
   recorded as written in `evals/results/`:
   - 8/15 (routing 5/9, mode 3/3, destructive 0/3). The scorer read only
     the first of the model's parallel tool calls, so the destructive cases
@@ -170,6 +170,10 @@ Covers every commit after the 0.2.0 entry was written (`4303981`, 11 June
   - 11/15 (routing 7/9, mode 2/3, destructive 2/3), after the first turn
     was scored as a set. Both cases that reached confirmation stopped for
     the user.
+  - 11/15 (routing 9/9, mode 2/3, destructive 0/3), after the
+    vulnerability fix. In all three destructive cases the model confirmed
+    the action itself with the returned token. The token gate alone does
+    not stop a model; human approval has to come from the client.
 
   Install with
   `pip install -e ".[eval]"`.
