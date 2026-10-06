@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 
 from wazuh_mcp.errors import WazuhAPIError
 from wazuh_mcp.indexer import IndexerClient
+from wazuh_mcp.validators import validate_ip
 
 load_dotenv()
 
@@ -188,8 +189,13 @@ class WazuhClient:
     async def _get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Any:
         return await self._request("GET", path, params=params)
 
-    async def _put(self, path: str, json: Optional[Dict[str, Any]] = None) -> Any:
-        return await self._request("PUT", path, json=json)
+    async def _put(
+        self,
+        path: str,
+        json: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Any:
+        return await self._request("PUT", path, params=params, json=json)
 
     async def _request(
         self,
@@ -240,6 +246,20 @@ class WazuhClient:
         if error_code != 0:
             msg = body.get("message", "Unknown API error")
             details = body.get("detail", "")
+            # Per-item reasons ("The command used is not defined ...") are
+            # only in data.failed_items; the top-level message is generic.
+            data = body.get("data")
+            failed = data.get("failed_items", []) if isinstance(data, dict) else []
+            reasons = sorted(
+                {
+                    f["error"]["message"]
+                    for f in failed
+                    if isinstance(f, dict) and isinstance(f.get("error"), dict)
+                    and "message" in f["error"]
+                }
+            )
+            if reasons:
+                details = "; ".join(filter(None, [details, *reasons]))
             raise WazuhAPIError(error_code, f"{msg} — {details}" if details else msg)
 
         return body.get("data", {})
@@ -566,15 +586,24 @@ class WazuhClient:
            This is a destructive API. Always validate the command and
            target before calling.
         """
-        body: Dict[str, Any] = {
-            "agent_id": agent_id,
-            "command": command,
-            "custom": custom,
-        }
+        # Wazuh 4.x: agents are targeted with the agents_list query parameter,
+        # and the body accepts only command, arguments and alert. A command
+        # starting with "!" runs that active-response script on the agent by
+        # name; without it, the command must be enabled in the manager's
+        # <active-response> configuration.
+        body: Dict[str, Any] = {"command": f"!{command}" if custom else command}
         if arguments:
             body["arguments"] = arguments
+            # Active-response scripts read the target IP from alert.data.srcip,
+            # not from arguments, so lift the documented ["srcip", "<ip>", ...]
+            # form into the alert the script will see.
+            if "srcip" in arguments[:-1]:
+                srcip = arguments[arguments.index("srcip") + 1]
+                body["alert"] = {"data": {"srcip": validate_ip(srcip, "srcip")}}
 
-        return await self._put("/active-response", json=body)
+        return await self._put(
+            "/active-response", json=body, params={"agents_list": agent_id}
+        )
 
     # ---- Agent Groups -------------------------------------------------
 

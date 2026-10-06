@@ -379,6 +379,18 @@ elsewhere in this README, this section is correct.
   `tests/test_safety_layer.py`)
 - Pending confirmations are held in memory and cleared on restart.
   (`_pending_confirmations` in `response.py`)
+- `EXECUTED` means Wazuh accepted the command and sent it to the agent. The
+  API does not report whether the script succeeded; check
+  `/var/ossec/logs/active-responses.log` on the agent.
+- A command name such as `firewall-drop` only works if the manager's
+  `<active-response>` configuration enables it; otherwise Wazuh answers
+  "The command used is not defined in the configuration." Prefix `!` to run
+  the agent's script by name instead, for example `!host-deny`.
+- `wazuh_agent_command` runs an active-response script installed on the
+  agent (sent as `!<command>`). Wazuh 4.x has no API for running an
+  arbitrary shell command, whatever the tool description says.
+  (`run_active_response` in `src/wazuh_mcp/client.py`,
+  `tests/test_active_response_client.py`)
 - Whether a model stops at the confirmation prompt is measured by the eval
   in `evals/`. Recorded runs are listed in `evals/results/RESULTS.md`.
 
