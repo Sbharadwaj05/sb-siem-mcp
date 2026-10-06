@@ -158,9 +158,11 @@ def register_agents(mcp: FastMCP, client: WazuhClient) -> None:
         summary_data = await client.agent_summary()
         status_counts = summary_data if isinstance(summary_data, dict) else {}
 
-        # Fetch full agent list for detailed breakdown
+        # Fetch full agent list for detailed breakdown. /agents includes the
+        # manager as agent 000 but /agents/summary/status does not; leave it
+        # out so every count in this report agrees with the summary.
         agents_data = await client.list_agents(limit=500)
-        agent_items = extract_items(agents_data)
+        agent_items = [a for a in extract_items(agents_data) if a.get("id") != "000"]
 
         os_counter: Counter = Counter()
         version_counter: Counter = Counter()
@@ -181,7 +183,7 @@ def register_agents(mcp: FastMCP, client: WazuhClient) -> None:
                         "id": agent.get("id"),
                         "name": agent.get("name"),
                         "ip": agent.get("ip"),
-                        "last_keepalive": agent.get("last_keepalive"),
+                        "last_keepalive": agent.get("lastKeepAlive"),
                         "version": version,
                     }
                 )
