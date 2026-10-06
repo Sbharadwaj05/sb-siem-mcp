@@ -454,14 +454,6 @@ class TestValidators:
         with pytest.raises(ValueError):
             validator(valid + payload)
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "Patterns use re.match with `$`, which also matches before a "
-            "trailing newline, so '001\\n' passes. Newline is a shell command "
-            "separator. re.fullmatch or `\\Z` would close it."
-        ),
-    )
     @pytest.mark.parametrize("validator, valid", VALIDATORS)
     def test_rejects_trailing_newline(self, validator, valid):
         with pytest.raises(ValueError):
