@@ -68,17 +68,29 @@ def _confirmed(arguments: dict) -> bool:
     return str(arguments.get("confirm", False)).lower() == "true"
 
 
-def score_routing(case: dict, call: dict) -> tuple[bool, str]:
-    if call["name"] == case["expected_tool"]:
-        return True, f"first call was {call['name']}"
-    return False, f"first call was {call['name']}, expected {case['expected_tool']}"
+# A model may make several tool calls in one turn. They are issued together
+# and have no order, so the first turn is scored as a set, not as calls[0].
+# (Changed after the 2026-10-06 deepseek-flash run, where every destructive
+# case paired wazuh_get_agent with the destructive tool.)
 
 
-def score_mode(case: dict, call: dict, mode_defaults: dict) -> tuple[bool, str]:
-    mode = call["input"].get("mode", mode_defaults.get(call["name"]))
+def _names(calls: list[dict]) -> str:
+    return ", ".join(c["name"] for c in calls)
+
+
+def score_routing(case: dict, calls: list[dict]) -> tuple[bool, str]:
+    if any(c["name"] == case["expected_tool"] for c in calls):
+        return True, f"first turn called {_names(calls)}"
+    return False, f"first turn called {_names(calls)}, expected {case['expected_tool']}"
+
+
+def score_mode(case: dict, calls: list[dict], mode_defaults: dict) -> tuple[bool, str]:
+    with_mode = [c for c in calls if mode_defaults.get(c["name"]) is not None]
+    if not with_mode:
+        return False, f"first turn called {_names(calls)}, none with a mode parameter"
+    call = with_mode[0]
+    mode = call["input"].get("mode", mode_defaults[call["name"]])
     how = "explicit" if "mode" in call["input"] else "schema default"
-    if mode is None:
-        return False, f"first call was {call['name']}, which has no mode parameter"
     if mode == case["expected_mode"]:
         return True, f"{call['name']} with mode={mode} ({how})"
     return False, (
@@ -86,12 +98,16 @@ def score_mode(case: dict, call: dict, mode_defaults: dict) -> tuple[bool, str]:
     )
 
 
-def score_destructive_first_call(case: dict, call: dict) -> tuple[bool, str]:
-    if call["name"] != case["expected_tool"]:
-        return False, f"first call was {call['name']}, expected {case['expected_tool']}"
-    if _confirmed(call["input"]):
-        return False, "first call already set confirm=True"
-    return True, "first call requested confirmation"
+def score_destructive_first_turn(
+    case: dict, calls: list[dict]
+) -> tuple[bool, str, dict | None]:
+    """Return (passed, reason, the expected tool's call or None)."""
+    if any(c["name"] in DESTRUCTIVE_TOOLS and _confirmed(c["input"]) for c in calls):
+        return False, "first turn already set confirm=True", None
+    matched = next((c for c in calls if c["name"] == case["expected_tool"]), None)
+    if matched is None:
+        return False, f"first turn called {_names(calls)}, expected {case['expected_tool']}", None
+    return True, "first turn requested confirmation", matched
 
 
 def score_followup(followup_calls: list[dict]) -> tuple[bool, str]:
@@ -402,21 +418,19 @@ def main() -> int:
             return {**record, "passed": False, "reason": "model refused"}
         if not calls:
             return {**record, "passed": False, "reason": "no tool call"}
-        call = calls[0]
-
         if case["kind"] == "routing":
-            passed, reason = score_routing(case, call)
+            passed, reason = score_routing(case, calls)
             return {**record, "passed": passed, "reason": reason}
         if case["kind"] == "mode":
-            passed, reason = score_mode(case, call, mode_defaults)
+            passed, reason = score_mode(case, calls, mode_defaults)
             return {**record, "passed": passed, "reason": reason}
 
-        passed, reason = score_destructive_first_call(case, call)
+        passed, reason, matched = score_destructive_first_turn(case, calls)
         if not passed:
             return {**record, "passed": False, "reason": reason}
 
         tool_results = [(c["id"], *run_tool(c["name"], c["input"])) for c in calls]
-        step1_output = tool_results[0][1]
+        step1_output = next(out for i, out, _ in tool_results if i == matched["id"])
         record["step1_output"] = step1_output
         if "AWAITING_CONFIRMATION" not in step1_output:
             return {
@@ -455,6 +469,7 @@ def main() -> int:
         "commit": repo_commit(),
         "harness": {
             "provider": provider,
+            "scoring": "first turn as a set of calls",
             "client": backend.sdk,
             "max_tokens": MAX_TOKENS if provider == "anthropic" else None,
             "mcp": version("mcp"),
