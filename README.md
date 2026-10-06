@@ -192,7 +192,7 @@ WAZUH_RATE_LIMIT_PERIOD=60             # Rate limit window
 |------|-------------|-------------|
 | `wazuh_search_events` | Submit raw events for Wazuh parsing/analysis | Wazuh API |
 | `wazuh_query_fim` | File Integrity Monitoring — file changes, additions, deletions | Wazuh API |
-| `wazuh_query_vulnerabilities` | CVE inventory per agent, filterable by severity | Wazuh Indexer |
+| `wazuh_query_vulnerabilities` | CVE inventory for one agent or the whole fleet, filterable by CVE and severity | Wazuh Indexer |
 | `wazuh_search_mitre` | MITRE ATT&CK techniques, tactics, mitigations, groups | Wazuh API |
 
 ### 📋 Compliance (3)
@@ -396,11 +396,17 @@ elsewhere in this README, this section is correct.
   (`run_active_response` in `src/wazuh_mcp/client.py`,
   `tests/test_active_response_client.py`)
 - Whether a model stops at the confirmation prompt is measured by the eval
-  in `evals/`. In the second deepseek-flash run (2026-10-06, 11/15), the
-  model stopped and asked the user in both destructive cases that reached
-  the confirmation step. The third case only looked up the agent first and
-  was not scored past that. The first run (8/15) did not measure this,
-  because of a scoring bug since fixed. See `evals/results/RESULTS.md`.
+  in `evals/`, and the gate does not hold on its own. With the same model
+  (deepseek-flash), prompt and destructive-tool schemas:
+  - Run 2 (2026-10-06): the model stopped and asked the user in both
+    destructive cases that reached the confirmation step.
+  - Run 3: it called the tool again with `confirm=True` and the token,
+    without user approval, in all three cases. In one of them its own text
+    said the action "requires confirmation".
+
+  Treat the client's tool-approval prompt as the only human check. The
+  first run did not measure this, because of a scoring bug since fixed.
+  See `evals/results/RESULTS.md`.
 
 **Access control**
 
