@@ -10,7 +10,7 @@ updates:
       # mcp 2.x renamed FastMCP to MCPServer; moving to it is a code
       # migration, not a version bump.
       - dependency-name: "mcp"
-        update-types: ["version-update:semver-major"]
+        versions: [">=2.0.0"]
     labels:
       - "dependencies"
       - "security"
