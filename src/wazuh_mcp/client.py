@@ -448,7 +448,7 @@ class WazuhClient:
 
     async def vulnerabilities(
         self,
-        agent_id: str,
+        agent_id: Optional[str] = None,
         *,
         cve: Optional[str] = None,
         severity: Optional[str] = None,  # Critical | High | Medium | Low
@@ -456,7 +456,24 @@ class WazuhClient:
         limit: int = 100,
         offset: int = 0,
     ) -> Dict[str, Any]:
-        """Query vulnerabilities — tries API first, falls back to indexer."""
+        """Query vulnerabilities for one agent, or the whole fleet if agent_id is None.
+
+        Wazuh 4.x removed /vulnerability/{agent_id} and keeps the inventory
+        in the indexer, so the REST call only helps older managers. Every
+        filter must be carried into the indexer query: dropping agent_id
+        there returned the whole fleet under one agent's label.
+        """
+        indexer_query = dict(
+            agent_id=agent_id,
+            severity=severity,
+            cve=cve,
+            search=search,
+            limit=limit,
+            offset=offset,
+        )
+        if agent_id is None:
+            return await self._indexer.vulnerabilities(**indexer_query)
+
         params: Dict[str, Any] = {"limit": limit, "offset": offset}
         if cve:
             params["cve"] = cve
@@ -467,12 +484,7 @@ class WazuhClient:
         try:
             return await self._get(f"/vulnerability/{agent_id}", params=params)
         except WazuhAPIError:
-            return await self._indexer.vulnerabilities(
-                severity=severity,
-                cve=cve,
-                limit=limit,
-                offset=offset,
-            )
+            return await self._indexer.vulnerabilities(**indexer_query)
 
     # ---- MITRE ATT&CK -------------------------------------------------
 

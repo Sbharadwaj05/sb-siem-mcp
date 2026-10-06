@@ -183,7 +183,8 @@ def register_hunting(mcp: FastMCP, client: WazuhClient) -> None:
     )
     @safe_tool("wazuh_query_vulnerabilities")
     async def wazuh_query_vulnerabilities(
-        agent_id: str = types.Field(
+        agent_id: Optional[str] = types.Field(
+            default=None,
             description="Agent ID to query vulnerabilities for (e.g., '001')",
         ),
         cve: Optional[str] = types.Field(
@@ -212,7 +213,8 @@ def register_hunting(mcp: FastMCP, client: WazuhClient) -> None:
         ),
     ) -> str:
         # --- input validation ---
-        validate_agent_id(agent_id)
+        if agent_id is not None:
+            validate_agent_id(agent_id)
         if cve is not None:
             validate_cve(cve)
         if severity is not None:
@@ -233,7 +235,11 @@ def register_hunting(mcp: FastMCP, client: WazuhClient) -> None:
         items = extract_items(data)
         total = extract_total(data)
 
-        summary = f"Vulnerabilities for agent {agent_id}"
+        summary = (
+            f"Vulnerabilities for agent {agent_id}"
+            if agent_id
+            else "Vulnerabilities across the fleet"
+        )
         if severity:
             summary += f" — severity: {severity}"
         if cve:

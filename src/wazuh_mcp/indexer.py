@@ -174,21 +174,28 @@ class IndexerClient:
     async def vulnerabilities(
         self,
         *,
-        agent_name: Optional[str] = None,
+        agent_id: Optional[str] = None,
         severity: Optional[str] = None,
         cve: Optional[str] = None,
+        search: Optional[str] = None,
         limit: int = 100,
         offset: int = 0,
     ) -> Dict[str, Any]:
         """Query vulnerabilities from wazuh-states-vulnerabilities-*."""
         must: List[Dict] = []
 
-        if agent_name:
-            must.append({"term": {"agent.name": agent_name}})
+        if agent_id:
+            must.append({"term": {"agent.id": agent_id}})
+        # Keyword fields: the index stores "High" and "CVE-..."; callers
+        # send whatever case the model chose.
         if severity:
-            must.append({"term": {"vulnerability.severity": severity}})
+            must.append(
+                {"term": {"vulnerability.severity": {"value": severity, "case_insensitive": True}}}
+            )
         if cve:
-            must.append({"term": {"vulnerability.id": cve}})
+            must.append({"term": {"vulnerability.id": {"value": cve, "case_insensitive": True}}})
+        if search:
+            must.append({"query_string": {"query": escape_lucene(search)}})
 
         query: Dict[str, Any] = {"bool": {"must": must}} if must else {"match_all": {}}
 
