@@ -321,6 +321,9 @@ for tool, count in c.most_common():
 
 ## Prometheus Metrics
 
+The endpoint exists in SSE mode, but no tool records to these metrics yet,
+so every value is zero (see Known Limits in the README).
+
 ```bash
 # Check metrics endpoint
 curl http://localhost:9090/metrics | grep wazuh_mcp
