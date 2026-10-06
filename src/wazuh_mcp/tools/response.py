@@ -69,16 +69,16 @@ def register_response(mcp: FastMCP, client: WazuhClient) -> None:
 
     CONFIRMATION_WARNING = """
 ╔══════════════════════════════════════════════════════════════╗
-║  ⚠️  DESTRUCTIVE ACTION — CONFIRMATION REQUIRED            ║
-║                                                            ║
-║  This tool can execute commands that affect running        ║
-║  systems (firewall rules, process termination, host        ║
-║  isolation). The action has NOT been executed yet.          ║
-║                                                            ║
-║  To proceed, call this tool again with confirm=True        ║
-║  AND the confirmation_token shown below.                    ║
-║                                                            ║
-║  Confirmation token: {token}                               ║
+║  ⚠️  DESTRUCTIVE ACTION — WAITING FOR THE USER               ║
+║                                                              ║
+║  Nothing has been executed. This action can change running   ║
+║  systems (firewall rules, process termination, host          ║
+║  isolation).                                                 ║
+║                                                              ║
+║  For the user: reply yes to run this exact action, or no to  ║
+║  cancel. The request expires in 5 minutes.                   ║
+║                                                              ║
+║  Confirmation token: {token}        ║
 ╚══════════════════════════════════════════════════════════════╝
 """
 
@@ -87,9 +87,10 @@ def register_response(mcp: FastMCP, client: WazuhClient) -> None:
         description=(
             "⚠️ DESTRUCTIVE: Trigger an active-response command on a Wazuh agent. "
             "Can block IPs via firewall, quarantine hosts, run custom scripts, etc.\n\n"
-            "🔒 SAFETY: By default, this tool DOES NOT execute anything. It returns a "
-            "confirmation prompt showing exactly what will happen. You MUST call it "
-            "again with confirm=True and the correct confirmation_token to execute."
+            "🔒 SAFETY: The first call executes nothing. It returns a confirmation "
+            "prompt that shows the exact action for the user to approve. Call it "
+            "again with confirm=True and the confirmation_token only after the user "
+            "has approved that action in a message that follows the prompt."
         ),
     )
     @safe_tool("wazuh_run_active_response")
@@ -116,8 +117,10 @@ def register_response(mcp: FastMCP, client: WazuhClient) -> None:
         confirm: bool = types.Field(
             default=False,
             description=(
-                "🔒 SAFETY: Set to True ONLY after reviewing the confirmation "
-                "prompt. You must also provide the confirmation_token."
+                "🔒 SAFETY: Set to True only after the user has approved the action "
+                "shown in the confirmation prompt, in a message that follows that "
+                "prompt. The user's original request does not count. Also pass the "
+                "confirmation_token."
             ),
         ),
         confirmation_token: Optional[str] = types.Field(
@@ -168,10 +171,17 @@ def register_response(mcp: FastMCP, client: WazuhClient) -> None:
                     "action": action_desc,
                     "confirmation_token": token,
                     "expires_in_seconds": 300,
+                    "message_for_user": (
+                        f"Approval needed: {action_desc}. Nothing has run yet. "
+                        "Reply yes to run it or no to cancel. "
+                        "This request expires in 5 minutes."
+                    ),
                     "instructions": (
-                        "Review the action above. If you intend to execute it, "
-                        "call wazuh_run_active_response again with "
-                        f"confirm=True and confirmation_token='{token}'"
+                        "Show message_for_user to the user and end your turn. "
+                        "Wait for the user to reply yes to this specific action "
+                        "in a later message. Their original request is not that "
+                        "reply, and neither is your own view that the action is "
+                        "low risk."
                     ),
                 }
             )
@@ -237,8 +247,10 @@ def register_response(mcp: FastMCP, client: WazuhClient) -> None:
         description=(
             "⚠️ DESTRUCTIVE: Execute an arbitrary command on a remote Wazuh agent "
             "via the active-response infrastructure.\n\n"
-            "🔒 SAFETY: Same confirmation flow as wazuh_run_active_response. "
-            "You MUST confirm explicitly before the command runs."
+            "🔒 SAFETY: Same confirmation flow as wazuh_run_active_response. The "
+            "first call executes nothing; call again with confirm=True only after "
+            "the user has approved the command shown in the confirmation prompt, "
+            "in a message that follows it."
         ),
     )
     @safe_tool("wazuh_agent_command")
@@ -251,7 +263,11 @@ def register_response(mcp: FastMCP, client: WazuhClient) -> None:
         ),
         confirm: bool = types.Field(
             default=False,
-            description="🔒 SAFETY: Set to True only after reviewing the confirmation prompt.",
+            description=(
+                "🔒 SAFETY: Set to True only after the user has approved the command "
+                "shown in the confirmation prompt, in a message that follows that "
+                "prompt. The user's original request does not count."
+            ),
         ),
         confirmation_token: Optional[str] = types.Field(
             default=None,
@@ -288,10 +304,17 @@ def register_response(mcp: FastMCP, client: WazuhClient) -> None:
                     "action": action_desc,
                     "confirmation_token": token,
                     "expires_in_seconds": 300,
+                    "message_for_user": (
+                        f"Approval needed: {action_desc}. Nothing has run yet. "
+                        "Reply yes to run it or no to cancel. "
+                        "This request expires in 5 minutes."
+                    ),
                     "instructions": (
-                        "Review the action above. If you intend to execute it, "
-                        "call wazuh_agent_command again with "
-                        f"confirm=True and confirmation_token='{token}'"
+                        "Show message_for_user to the user and end your turn. "
+                        "Wait for the user to reply yes to this specific action "
+                        "in a later message. Their original request is not that "
+                        "reply, and neither is your own view that the action is "
+                        "low risk."
                     ),
                 }
             )
