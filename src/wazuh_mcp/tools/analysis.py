@@ -99,7 +99,10 @@ def register_analysis(mcp: FastMCP, client: WazuhClient) -> None:
             total_rules += 1
             level_distribution[level] += 1
 
-            mitre_ids = rule.get("mitre", {}).get("id", []) or []
+            # REST /rules returns a list of IDs; indexer documents nest them
+            # under {"id": [...]}.
+            mitre = rule.get("mitre") or []
+            mitre_ids = mitre.get("id", []) if isinstance(mitre, dict) else mitre
             for m_id in mitre_ids:
                 mitre_map[m_id].append(str(rule_id))
 

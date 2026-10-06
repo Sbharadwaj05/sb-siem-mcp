@@ -406,11 +406,26 @@ class WazuhClient:
         limit: int = 100,
         offset: int = 0,
     ) -> Dict[str, Any]:
-        """Get SCA check results for an agent/policy."""
-        if policy_id:
-            path = f"/sca/{agent_id}/checks/{policy_id}"
-        else:
-            path = f"/sca/{agent_id}/checks"
+        """Get SCA check results for an agent/policy.
+
+        Wazuh 4.x only serves checks per policy (/sca/{agent}/checks/{policy});
+        /sca/{agent}/checks is a 404. Without a policy_id, use the agent's
+        policy if it has exactly one, and otherwise ask the caller to choose.
+        """
+        if not policy_id:
+            policies = [
+                p.get("policy_id")
+                for p in (await self._get(f"/sca/{agent_id}")).get("affected_items", [])
+            ]
+            if not policies:
+                return {"affected_items": [], "total_affected_items": 0}
+            if len(policies) > 1:
+                raise ValueError(
+                    f"Agent {agent_id} has {len(policies)} SCA policies "
+                    f"({', '.join(policies)}); pass policy_id to choose one."
+                )
+            policy_id = policies[0]
+        path = f"/sca/{agent_id}/checks/{policy_id}"
         params: Dict[str, Any] = {"limit": limit, "offset": offset}
         if search:
             params["search"] = search
@@ -502,7 +517,9 @@ class WazuhClient:
         if search:
             params["search"] = search
         if technique_id:
-            params["technique_id"] = technique_id
+            # technique_ids takes Wazuh's internal IDs; the ATT&CK ID
+            # (T1110) is the external_id field.
+            params["q"] = f"external_id={technique_id}"
         if select:
             params["select"] = select
         return await self._get("/mitre/techniques", params=params)
@@ -665,8 +682,11 @@ class WazuhClient:
             return await self.manager_stats()
 
     async def cluster_node_info(self, node_id: str) -> Dict[str, Any]:
-        """Get configuration info for a specific cluster node."""
-        return await self._get(f"/cluster/{node_id}/info")
+        """Get node info — falls back to manager info for single-node."""
+        try:
+            return await self._get(f"/cluster/{node_id}/info")
+        except WazuhAPIError:
+            return await self.manager_info()
 
     # ---- CDB Lists ----------------------------------------------------
 

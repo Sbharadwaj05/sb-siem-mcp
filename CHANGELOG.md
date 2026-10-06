@@ -127,6 +127,24 @@ Covers every commit after the 0.2.0 entry was written (`4303981`, 11 June
   example "The command used is not defined in the configuration." Checked
   live: `!host-deny` with `srcip` 10.0.0.54 wrote `ALL:10.0.0.54` to the
   agent's `/etc/hosts.deny`.
+- **Fix: five tools that failed on Wazuh 4.14.8.** Found by calling all 28
+  tools against the live lab:
+  - `wazuh_sca_checks` called `/sca/{agent}/checks`, which 4.x does not
+    serve (404). It now uses the agent's policy, or asks for `policy_id`
+    when the agent has several.
+  - `wazuh_search_mitre` sent `technique_id`, which 4.x rejects, plus the
+    alert output-mode fields as `select`. It now filters with
+    `q=external_id=<ID>`, and `triage` mode selects
+    `external_id,name,tactics`.
+  - `wazuh_cluster_status` asked for cluster nodes on a single-node
+    manager ("Cluster is not running"). It now lists nodes only when the
+    cluster is running.
+  - `wazuh_cluster_node_stats` had a single-node fallback for statistics
+    but not for node info. Node info now falls back to `/manager/info`.
+  - `wazuh_rules_coverage_map` expected `mitre` to be a dict, but REST
+    rules return it as a list. It now accepts both.
+
+  After the fix, all 28 tools return data from the lab.
 - **Fix: vulnerability queries return the right agent's CVEs.** Wazuh 4.x
   keeps vulnerabilities in the indexer, and `/vulnerability/{agent_id}` is
   gone from the API. The indexer fallback dropped `agent_id` and `search`,
@@ -156,7 +174,7 @@ Covers every commit after the 0.2.0 entry was written (`4303981`, 11 June
   tools through `FastMCP.call_tool` with only `WazuhClient` mocked:
   confirmation gate, RBAC, rate limiting, validators, sanitizer and the SSE
   entry point. The four defects above were first committed as strict
-  xfails, then fixed. The suite grows from 26 to 112 passing tests, with
+  xfails, then fixed. The suite grows from 26 to 120 passing tests, with
   no xfails left.
 - **Model-behaviour eval (R7).** `evals/` holds 15 cases (9 routing, 3
   output-mode, 3 destructive-flow) and a harness that loads the real server
