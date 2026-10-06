@@ -1,6 +1,6 @@
 [project]
 name = "sb-siem-mcp"
-version = "0.2.0"
+version = "0.2.1"
 description = "MCP server for SIEM/XDR platforms — AI-powered security operations via natural language."
 readme = "README.md"
 license = { text = "MIT" }

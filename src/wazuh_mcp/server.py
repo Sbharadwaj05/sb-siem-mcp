@@ -25,6 +25,7 @@ import sys
 
 from mcp.server.fastmcp import FastMCP
 
+from wazuh_mcp import __version__
 from wazuh_mcp.client import WazuhClient
 from wazuh_mcp.logging_config import configure_logging
 from wazuh_mcp.tools import (
@@ -110,7 +111,7 @@ logger.info("Registered 9 tool modules")
 
 def main() -> None:
     """Run the MCP server (stdio transport for Claude Desktop / Cursor)."""
-    logger.info("Starting Wazuh MCP Server v0.2.0 (production-hardened)")
+    logger.info("Starting Wazuh MCP Server v%s (production-hardened)", __version__)
     logger.info("Connected to: %s", _manager_urls[0])
     if len(_manager_urls) > 1:
         logger.info("Additional managers: %s", ", ".join(_manager_urls[1:]))
@@ -131,7 +132,7 @@ def main_sse() -> None:
       - http://127.0.0.1:8000/docs          — Swagger UI
       - http://127.0.0.1:8000/openapi.json   — OpenAPI spec
     """
-    logger.info("Starting Wazuh MCP Server v0.2.0 (SSE transport)")
+    logger.info("Starting Wazuh MCP Server v%s (SSE transport)", __version__)
 
     # Start Prometheus metrics on a background thread
     from wazuh_mcp.metrics import start_metrics_server

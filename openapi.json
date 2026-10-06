@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Wazuh MCP Server API",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "description": "AI-powered security operations for Wazuh SIEM/XDR. 28 MCP tools across 9 domains: alerts, hunting, compliance, agents, groups, lists, manager, response, and analysis.",
     "contact": {
       "name": "Subhash Bharadwaj",
