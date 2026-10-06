@@ -397,14 +397,6 @@ class TestRBAC:
         assert enforcer._enabled is True
         assert enforcer.is_allowed(ACTIVE_RESPONSE)
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "README and rbac.py describe the built-in roles as hierarchical and "
-            "cumulative, but ROLE_TOOLS holds only each tier's additions, so "
-            "a higher role loses every lower-tier tool."
-        ),
-    )
     @pytest.mark.parametrize(
         "role, lower_tier_tool",
         [

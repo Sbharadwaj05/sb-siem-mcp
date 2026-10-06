@@ -30,10 +30,10 @@ from typing import Dict, FrozenSet, Optional, Set
 logger = logging.getLogger("wazuh-mcp.rbac")
 
 # ---------------------------------------------------------------------------
-# Built-in role definitions — which tools each role can call
+# Built-in role definitions — which tools each role adds to the one below
 # ---------------------------------------------------------------------------
 
-ROLE_TOOLS: Dict[str, FrozenSet[str]] = {
+_ROLE_ADDITIONS: Dict[str, FrozenSet[str]] = {
     "viewer": frozenset(
         {
             # Alerts (read-only)
@@ -92,6 +92,13 @@ ROLE_TOOLS: Dict[str, FrozenSet[str]] = {
         }
     ),
 }
+
+# Roles are cumulative: each one holds every tool of the tiers below it.
+ROLE_TOOLS: Dict[str, FrozenSet[str]] = {}
+_granted: FrozenSet[str] = frozenset()
+for _role, _tools in _ROLE_ADDITIONS.items():
+    _granted = _granted | _tools
+    ROLE_TOOLS[_role] = _granted
 
 
 def _load_custom_policy(path: str) -> Dict[str, FrozenSet[str]]:
