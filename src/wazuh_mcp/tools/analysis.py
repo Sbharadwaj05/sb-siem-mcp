@@ -193,7 +193,11 @@ def register_analysis(mcp: FastMCP, client: WazuhClient) -> None:
 
                 counts: Counter = Counter()
                 for vuln in vuln_items:
-                    sev = vuln.get("severity", "Unknown")
+                    # Indexer documents (Wazuh 4.x) nest it under "vulnerability";
+                    # the old REST API put it at the top level.
+                    sev = (vuln.get("vulnerability") or {}).get("severity") or vuln.get(
+                        "severity", "Unknown"
+                    )
                     counts[sev] += 1
 
                 critical = counts.get("Critical", 0)

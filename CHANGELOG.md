@@ -127,6 +127,24 @@ Covers every commit after the 0.2.0 entry was written (`4303981`, 11 June
   example "The command used is not defined in the configuration." Checked
   live: `!host-deny` with `srcip` 10.0.0.54 wrote `ALL:10.0.0.54` to the
   agent's `/etc/hosts.deny`.
+- **Fix: vulnerability queries return the right agent's CVEs.** Wazuh 4.x
+  keeps vulnerabilities in the indexer, and `/vulnerability/{agent_id}` is
+  gone from the API. The indexer fallback dropped `agent_id` and `search`,
+  so `wazuh_query_vulnerabilities` returned every agent's CVEs under the
+  requested agent's label. Checked live: agent 999, which does not exist,
+  got agent 001's 22 CVEs. `wazuh_vulnerability_heatmap` uses the same
+  call, so every agent was given the fleet's CVEs, and it read severity
+  from the wrong field, so the live heatmap showed 0 for an agent with 22.
+  Now:
+  - the indexer query filters on `agent.id`, `vulnerability.id`,
+    `vulnerability.severity` and the search text;
+  - CVE and severity matching is case-insensitive;
+  - `agent_id` is optional, so a fleet-wide CVE question works, as the
+    tool description already promised;
+  - the heatmap reads `vulnerability.severity`.
+
+  Live after the fix: agent 999 returns 0, and the heatmap shows 22 (15
+  high, 6 medium, 1 low), matching the index.
 - **Fix: `wazuh_agent_health` counts agree.** `/agents` includes the
   manager as agent 000 and `/agents/summary/status` does not, so
   `total_agents` and `os_breakdown` counted one more agent than
@@ -138,7 +156,7 @@ Covers every commit after the 0.2.0 entry was written (`4303981`, 11 June
   tools through `FastMCP.call_tool` with only `WazuhClient` mocked:
   confirmation gate, RBAC, rate limiting, validators, sanitizer and the SSE
   entry point. The four defects above were first committed as strict
-  xfails, then fixed. The suite grows from 26 to 102 passing tests, with
+  xfails, then fixed. The suite grows from 26 to 112 passing tests, with
   no xfails left.
 - **Model-behaviour eval (R7).** `evals/` holds 15 cases (9 routing, 3
   output-mode, 3 destructive-flow) and a harness that loads the real server
