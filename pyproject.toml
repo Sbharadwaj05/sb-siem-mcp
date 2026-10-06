@@ -21,7 +21,7 @@ dev = [
 ]
 # Model-behaviour eval (evals/run_eval.py). Added October 2026.
 eval = [
-    "anthropic>=1.0,<2.0",
+    "anthropic>=1.0,<2.0",  # Anthropic provider; DeepSeek uses httpx
     "pyyaml>=6.0",
 ]
 
