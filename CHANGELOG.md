@@ -61,9 +61,14 @@ Covers every commit after the 0.2.0 entry was written (`4303981`, 11 June
 
 ### Dependencies
 
-- `mcp>=1.0.0,<2.0.0` (mcp 2.0 renamed `FastMCP` and broke the server
-  import), `pydantic>=2.7.0,<3.0.0`, `pydantic-core>=2.18.0,<3.0.0`. Issue
-  #5, PR #6. (`8e2e4ee`)
+- `mcp<2.0.0` (mcp 2.0 renamed `FastMCP` and broke the server import),
+  `pydantic>=2.7.0,<3.0.0`, `pydantic-core>=2.18.0,<3.0.0`. Issue #5, PR #6.
+  (`8e2e4ee`)
+- October 2026: a Dependabot PR (#8) widened the range to `mcp<3.0.0`,
+  which installed mcp 2.3.0 and failed the CI import. The range is now
+  `mcp>=1.21.1,<2.0.0`. 1.21.1 is the lowest release the test suite passes
+  on; earlier FastMCP releases cannot resolve the postponed annotations in
+  the tool signatures. Dependabot now ignores major mcp updates.
 
 ### Docs
 

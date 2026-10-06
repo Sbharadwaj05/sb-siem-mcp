@@ -6,6 +6,11 @@ updates:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 5
+    ignore:
+      # mcp 2.x renamed FastMCP to MCPServer; moving to it is a code
+      # migration, not a version bump.
+      - dependency-name: "mcp"
+        update-types: ["version-update:semver-major"]
     labels:
       - "dependencies"
       - "security"
