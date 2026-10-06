@@ -140,11 +140,10 @@ def main_sse() -> None:
     metrics_port = int(os.getenv("WAZUH_METRICS_PORT", "9090"))
     start_metrics_server(port=metrics_port)
 
-    mcp.run(
-        transport="sse",
-        host=os.getenv("WAZUH_MCP_HOST", "127.0.0.1"),
-        port=int(os.getenv("WAZUH_MCP_PORT", "8000")),
-    )
+    # FastMCP.run() takes no host/port; they live in the server settings.
+    mcp.settings.host = os.getenv("WAZUH_MCP_HOST", "127.0.0.1")
+    mcp.settings.port = int(os.getenv("WAZUH_MCP_PORT", "8000"))
+    mcp.run(transport="sse")
 
 
 if __name__ == "__main__":
