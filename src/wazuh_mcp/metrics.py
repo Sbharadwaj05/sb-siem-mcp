@@ -170,12 +170,13 @@ def request_finished() -> None:
 _metrics_thread: Optional[threading.Thread] = None
 
 
-def start_metrics_server(port: int = 9090) -> None:
+def start_metrics_server(port: int = 9090, addr: str = "127.0.0.1") -> None:
     """
     Start a Prometheus HTTP metrics server on a background thread.
 
     Args:
         port: Port to bind the /metrics endpoint on.
+        addr: Interface to bind; prometheus_client defaults to all of them.
     """
     global _metrics_thread
     if not PROMETHEUS_AVAILABLE:
@@ -189,8 +190,8 @@ def start_metrics_server(port: int = 9090) -> None:
         return
 
     def _run():
-        logger.info("Prometheus /metrics endpoint starting on port %d", port)
-        start_http_server(port)
+        logger.info("Prometheus /metrics endpoint starting on %s:%d", addr, port)
+        start_http_server(port, addr=addr)
         # start_http_server runs in a daemon thread internally
 
     _metrics_thread = threading.Thread(target=_run, daemon=True, name="metrics-http")

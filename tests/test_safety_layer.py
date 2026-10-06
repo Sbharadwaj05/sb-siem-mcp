@@ -516,10 +516,15 @@ class TestSSEEntryPoint:
         async def fake_run_sse_async(*args, **kwargs):
             started["host"] = server.mcp.settings.host
 
-        monkeypatch.setattr(metrics, "start_metrics_server", lambda port: None)
+        def fake_metrics(port, addr="0.0.0.0"):
+            started["metrics_addr"] = addr
+
+        monkeypatch.setattr(metrics, "start_metrics_server", fake_metrics)
         monkeypatch.setattr(server.mcp, "run_sse_async", fake_run_sse_async)
         monkeypatch.delenv("WAZUH_MCP_HOST", raising=False)
 
         server.main_sse()
 
         assert started["host"] == "127.0.0.1"
+        # prometheus_client's own default is every interface.
+        assert started["metrics_addr"] == "127.0.0.1"
