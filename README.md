@@ -396,7 +396,10 @@ elsewhere in this README, this section is correct.
   (`run_active_response` in `src/wazuh_mcp/client.py`,
   `tests/test_active_response_client.py`)
 - Whether a model stops at the confirmation prompt is measured by the eval
-  in `evals/`. Recorded runs are listed in `evals/results/RESULTS.md`.
+  in `evals/`. The first run (deepseek-flash, 2026-10-06, 8/15) did not
+  measure it: in each destructive case the model called `wazuh_get_agent`
+  and the destructive tool in parallel, and the scorer read only the first
+  call. See `evals/results/RESULTS.md`.
 
 **Access control**
 

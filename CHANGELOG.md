@@ -144,7 +144,9 @@ Covers every commit after the 0.2.0 entry was written (`4303981`, 11 June
   output-mode, 3 destructive-flow) and a harness that loads the real server
   prompt and tool schemas. It runs against Anthropic or DeepSeek, needs
   `EVAL_MODEL` plus that provider's API key, and
-  has no default model. No run has been recorded yet. Install with
+  has no default model. First run 2026-10-06 on deepseek-flash: 8/15
+  (routing 5/9, mode 3/3, destructive 0/3), recorded as written in
+  `evals/results/`. Install with
   `pip install -e ".[eval]"`.
 - **CI on Python 3.14 (R5),** the version the Docker image ships.
 - **README "Known Limits" section (R8).**

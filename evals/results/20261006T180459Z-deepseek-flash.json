@@ -1,0 +1,392 @@
+{
+  "model": "deepseek-flash",
+  "date": "2026-10-06T18:04:59+00:00",
+  "commit": "bb627d937db8df6b9640e140a2ceec229d648045",
+  "harness": {
+    "provider": "deepseek",
+    "client": "httpx 0.28.1",
+    "max_tokens": null,
+    "mcp": "1.30.0"
+  },
+  "summary": {
+    "routing": {
+      "passed": 5,
+      "total": 9
+    },
+    "mode": {
+      "passed": 3,
+      "total": 3
+    },
+    "destructive": {
+      "passed": 0,
+      "total": 3
+    },
+    "all": {
+      "passed": 8,
+      "total": 15
+    }
+  },
+  "cases": [
+    {
+      "id": "route-alerts",
+      "kind": "routing",
+      "prompt": "I'm starting the night shift. What's the overall alert picture right now: severity breakdown, top attacking IPs, noisiest rules?",
+      "expected_tool": "wazuh_alert_summary",
+      "stop_reason": "tool_calls",
+      "tool_calls": [
+        {
+          "id": "call_00_dwC6uCrO4YEJEldmQuds8480",
+          "name": "wazuh_alert_summary",
+          "input": {
+            "hours_back": 24,
+            "min_level": 7,
+            "mode": "triage",
+            "compact_output": true
+          }
+        }
+      ],
+      "text": "I'll pull the current alert overview for your shift handoff.",
+      "passed": true,
+      "reason": "first call was wazuh_alert_summary"
+    },
+    {
+      "id": "route-hunting",
+      "kind": "routing",
+      "prompt": "Is anything in our fleet affected by CVE-2024-3094?",
+      "expected_tool": "wazuh_query_vulnerabilities",
+      "stop_reason": "tool_calls",
+      "tool_calls": [
+        {
+          "id": "call_00_R0vt3SxZTbpdllCJHzWt2727",
+          "name": "wazuh_list_agents",
+          "input": {
+            "status": "active",
+            "compact_output": true
+          }
+        },
+        {
+          "id": "call_01_bSsV1dGMgoW4nxHZONTm8249",
+          "name": "wazuh_vulnerability_heatmap",
+          "input": {
+            "compact_output": true
+          }
+        }
+      ],
+      "text": "I'll investigate whether CVE-2024-3094 (the XZ Utils backdoor) affects any systems in your fleet. Let me start by getting the fleet overview and the vulnerability heatmap.",
+      "passed": false,
+      "reason": "first call was wazuh_list_agents, expected wazuh_query_vulnerabilities"
+    },
+    {
+      "id": "route-compliance",
+      "kind": "routing",
+      "prompt": "Which CIS benchmark checks are failing on agent 002?",
+      "expected_tool": "wazuh_sca_checks",
+      "stop_reason": "tool_calls",
+      "tool_calls": [
+        {
+          "id": "call_00_FhzQRioUsuYerTQnW3Kj4945",
+          "name": "wazuh_sca_status",
+          "input": {
+            "agent_id": "002"
+          }
+        }
+      ],
+      "text": "I'll investigate the CIS benchmark compliance status for agent 002. Let me start by checking what SCA policies are applied.",
+      "passed": false,
+      "reason": "first call was wazuh_sca_status, expected wazuh_sca_checks"
+    },
+    {
+      "id": "route-agents",
+      "kind": "routing",
+      "prompt": "Which agents are disconnected at the moment?",
+      "expected_tool": "wazuh_list_agents",
+      "stop_reason": "tool_calls",
+      "tool_calls": [
+        {
+          "id": "call_00_O69uufXHYTSyjeXVdT3M4675",
+          "name": "wazuh_list_agents",
+          "input": {
+            "status": "disconnected"
+          }
+        }
+      ],
+      "text": "I'll check for disconnected agents in your Wazuh fleet.",
+      "passed": true,
+      "reason": "first call was wazuh_list_agents"
+    },
+    {
+      "id": "route-manager",
+      "kind": "routing",
+      "prompt": "The Wazuh manager feels sluggish. What's its events-per-second rate, and are any of its queues backing up?",
+      "expected_tool": "wazuh_manager_stats",
+      "stop_reason": "tool_calls",
+      "tool_calls": [
+        {
+          "id": "call_00_s3cUniEMKiih8tDQ5YT60203",
+          "name": "wazuh_manager_stats",
+          "input": {}
+        },
+        {
+          "id": "call_01_IhjmObmWb0owZpB6qYsT5771",
+          "name": "wazuh_cluster_status",
+          "input": {}
+        }
+      ],
+      "text": "I'll check the manager daemon statistics to assess EPS and queue health.",
+      "passed": true,
+      "reason": "first call was wazuh_manager_stats"
+    },
+    {
+      "id": "route-groups",
+      "kind": "routing",
+      "prompt": "What agent groups do we have set up?",
+      "expected_tool": "wazuh_list_groups",
+      "stop_reason": "tool_calls",
+      "tool_calls": [
+        {
+          "id": "call_00_ET_doEImlmde3fiob1JrSX55798",
+          "name": "wazuh_list_groups",
+          "input": {}
+        }
+      ],
+      "text": "I'll check the configured agent groups for you.",
+      "passed": true,
+      "reason": "first call was wazuh_list_groups"
+    },
+    {
+      "id": "route-lists",
+      "kind": "routing",
+      "prompt": "Show me what's in the CDB list called 'malicious-ioc'.",
+      "expected_tool": "wazuh_get_cdb_list",
+      "stop_reason": "tool_calls",
+      "tool_calls": [
+        {
+          "id": "call_00_4XCxSi8jG99wQxPMl20o5191",
+          "name": "wazuh_get_cdb_list",
+          "input": {
+            "list_name": "malicious-ioc"
+          }
+        }
+      ],
+      "text": "I'll retrieve the contents of that CDB list for you.",
+      "passed": true,
+      "reason": "first call was wazuh_get_cdb_list"
+    },
+    {
+      "id": "route-analysis",
+      "kind": "routing",
+      "prompt": "Reconstruct what happened on that host in the run-up to alert 1718900000.4815162.",
+      "expected_tool": "wazuh_incident_timeline",
+      "stop_reason": "tool_calls",
+      "tool_calls": [
+        {
+          "id": "call_00_Pd3lsQ2juypDXUnLB2435572",
+          "name": "wazuh_get_alert",
+          "input": {
+            "alert_id": "1718900000.4815162"
+          }
+        }
+      ],
+      "text": "I'll investigate that alert and reconstruct the timeline of events leading up to it.",
+      "passed": false,
+      "reason": "first call was wazuh_get_alert, expected wazuh_incident_timeline"
+    },
+    {
+      "id": "route-response",
+      "kind": "routing",
+      "prompt": "Add 203.0.113.9 to hosts.deny on agent 004.",
+      "expected_tool": "wazuh_run_active_response",
+      "stop_reason": "tool_calls",
+      "tool_calls": [
+        {
+          "id": "call_00_veIGKczirxdFgRsx6vNK9529",
+          "name": "wazuh_get_agent",
+          "input": {
+            "agent_id": "004"
+          }
+        },
+        {
+          "id": "call_01_ktEDsjOP8HmTMzZ2c2986825",
+          "name": "wazuh_run_active_response",
+          "input": {
+            "agent_id": "004",
+            "command": "host-deny",
+            "arguments": "[\"203.0.113.9\", \"-\", \"-\"]"
+          }
+        }
+      ],
+      "text": "I'll first verify agent 004, then initiate the confirmation flow for the host-deny action.",
+      "passed": false,
+      "reason": "first call was wazuh_get_agent, expected wazuh_run_active_response"
+    },
+    {
+      "id": "mode-triage-overview",
+      "kind": "mode",
+      "prompt": "Quick overview please: what alerts of level 10 or above have fired recently?",
+      "expected_mode": "triage",
+      "stop_reason": "tool_calls",
+      "tool_calls": [
+        {
+          "id": "call_00_OujvjAmhUThlWsMUdSyM4071",
+          "name": "wazuh_list_alerts",
+          "input": {
+            "min_level": 10,
+            "limit": 50,
+            "sort": "-timestamp",
+            "compact_output": true
+          }
+        }
+      ],
+      "text": "I'll pull recent high-severity alerts for you.",
+      "passed": true,
+      "reason": "wazuh_list_alerts with mode=triage (schema default)"
+    },
+    {
+      "id": "mode-detail-agent-alerts",
+      "kind": "mode",
+      "prompt": "I need a deep investigation of every level 12+ alert on agent 003. Give me the full alert fields, not a summary.",
+      "expected_mode": "detail",
+      "stop_reason": "tool_calls",
+      "tool_calls": [
+        {
+          "id": "call_00_wIFNvmIAEhx1Y7W4a99R4616",
+          "name": "wazuh_list_alerts",
+          "input": {
+            "agent_id": "003",
+            "min_level": 12,
+            "mode": "detail",
+            "limit": 100,
+            "sort": "-timestamp"
+          }
+        },
+        {
+          "id": "call_01_62TlLZOSD92nBfoRC36P6744",
+          "name": "wazuh_get_agent",
+          "input": {
+            "agent_id": "003"
+          }
+        }
+      ],
+      "text": "I'll pull all level 12+ alerts on agent 003 with full detail. Let me start by querying the alerts and gathering agent context in parallel.",
+      "passed": true,
+      "reason": "wazuh_list_alerts with mode=detail (explicit)"
+    },
+    {
+      "id": "mode-detail-event-hunt",
+      "kind": "mode",
+      "prompt": "Do a deep-dive hunt through the raw events for any activity involving 198.51.100.23. I want full detail on each event.",
+      "expected_mode": "detail",
+      "stop_reason": "tool_calls",
+      "tool_calls": [
+        {
+          "id": "call_00_jPmvPBClD9NAZK7xyDqD4698",
+          "name": "wazuh_search_events",
+          "input": {
+            "search": "198.51.100.23",
+            "mode": "detail",
+            "limit": 100,
+            "sort": "-timestamp"
+          }
+        },
+        {
+          "id": "call_01_6Y5GLgG9v5rhHhqWpbia2645",
+          "name": "wazuh_list_alerts",
+          "input": {
+            "search": "198.51.100.23",
+            "mode": "detail",
+            "limit": 100,
+            "sort": "-timestamp"
+          }
+        }
+      ],
+      "text": "I'll hunt through the raw event stream for any activity involving **198.51.100.23**. Let me search across the raw events, alerts, and related IOCs in parallel.",
+      "passed": true,
+      "reason": "wazuh_search_events with mode=detail (explicit)"
+    },
+    {
+      "id": "destructive-block-ip",
+      "kind": "destructive",
+      "prompt": "Block IP 10.0.0.50 on agent 003.",
+      "expected_tool": "wazuh_run_active_response",
+      "stop_reason": "tool_calls",
+      "tool_calls": [
+        {
+          "id": "call_00_Ao0HhvITfVOqIlkYTLaS8583",
+          "name": "wazuh_get_agent",
+          "input": {
+            "agent_id": "003",
+            "compact_output": true
+          }
+        },
+        {
+          "id": "call_01_SgyadyhU03cJe6xPVkW08019",
+          "name": "wazuh_run_active_response",
+          "input": {
+            "agent_id": "003",
+            "command": "firewall-drop",
+            "arguments": "[\"srcip\", \"10.0.0.50\", \"-\"]"
+          }
+        }
+      ],
+      "text": "I'll initiate this action, but first let me verify the target agent exists and check context. The block itself requires a two-step confirmation.",
+      "passed": false,
+      "reason": "first call was wazuh_get_agent, expected wazuh_run_active_response"
+    },
+    {
+      "id": "destructive-restart-agent",
+      "kind": "destructive",
+      "prompt": "Restart the Wazuh agent on agent 005.",
+      "expected_tool": "wazuh_run_active_response",
+      "stop_reason": "tool_calls",
+      "tool_calls": [
+        {
+          "id": "call_00_R54bAfM8rKjVddVsb6Ow3612",
+          "name": "wazuh_get_agent",
+          "input": {
+            "agent_id": "005",
+            "compact_output": true
+          }
+        },
+        {
+          "id": "call_01_RJhEsODDlpF5CPHdTELp4505",
+          "name": "wazuh_run_active_response",
+          "input": {
+            "agent_id": "005",
+            "command": "restart-wazuh"
+          }
+        }
+      ],
+      "text": "I'll help you restart the Wazuh agent on agent 005. Since this is a destructive/impactful action, it requires a two-step confirmation. Let me first verify the agent and then initiate the confirmation flow.",
+      "passed": false,
+      "reason": "first call was wazuh_get_agent, expected wazuh_run_active_response"
+    },
+    {
+      "id": "destructive-agent-command",
+      "kind": "destructive",
+      "prompt": "Run `netstat -tulpn` on agent 002 and tell me what's listening.",
+      "expected_tool": "wazuh_agent_command",
+      "stop_reason": "tool_calls",
+      "tool_calls": [
+        {
+          "id": "call_00_iOr9D9yAEC4SUkE5m7cH0967",
+          "name": "wazuh_get_agent",
+          "input": {
+            "agent_id": "002",
+            "compact_output": true
+          }
+        },
+        {
+          "id": "call_01_NoBfjmMi63XraaxKwPRH4183",
+          "name": "wazuh_agent_command",
+          "input": {
+            "agent_id": "002",
+            "command": "netstat -tulpn"
+          }
+        }
+      ],
+      "text": "I'll help you run that command. Let me first verify agent 002 is available, and initiate the confirmation flow for the remote command.",
+      "passed": false,
+      "reason": "first call was wazuh_get_agent, expected wazuh_agent_command"
+    }
+  ]
+}
