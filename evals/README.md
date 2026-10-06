@@ -15,7 +15,8 @@ description changes.
   (`wazuh_mcp.server.mcp.instructions` and `mcp.list_tools()`). Nothing is
   copied by hand, so the eval always tests what the server actually sends.
 - Sends each case in `cases.yaml` to the model as a single user message,
-  using the Anthropic Messages API with the server prompt as the system
+  using the provider's chat API (Anthropic or DeepSeek) with the server
+  prompt as the system
   prompt.
 - Does not need a Wazuh instance and does not run tools, except one step for
   destructive cases. There, the model's first call goes through the real
@@ -44,20 +45,37 @@ rate. To change a case, add a new one with a new id.
 
 ```bash
 pip install -e ".[eval]"
+
+# DeepSeek
+export DEEPSEEK_API_KEY=<your key>
+export EVAL_MODEL=deepseek-flash      # or another DeepSeek model id
+
+# or Anthropic
 export ANTHROPIC_API_KEY=<your key>
 export EVAL_MODEL=<model id>
+
 python evals/run_eval.py
 ```
 
-There is no default model. If `EVAL_MODEL` or `ANTHROPIC_API_KEY` is unset,
+The provider comes from the model name: `deepseek-*` uses DeepSeek
+(OpenAI-format chat completions at `https://api.deepseek.com`), anything
+else uses the Anthropic Messages API. Set `EVAL_PROVIDER=anthropic` or
+`EVAL_PROVIDER=deepseek` to override. Added October 2026.
+
+There is no default model. If `EVAL_MODEL` or the provider's key is unset,
 or the `[eval]` extra is not installed, the script prints instructions and
 exits with code 2. It sends nothing in that case.
+
+For DeepSeek, the assistant message is sent back unchanged in the follow-up
+request, including `reasoning_content`, which DeepSeek requires in thinking
+mode when tools are present. Tool results are sent as `tool` messages, which
+have no error flag, so an error is visible only in the text.
 
 The harness unsets `WAZUH_RBAC_ROLE` and `WAZUH_RBAC_POLICY` for the run, so
 the result reflects the model rather than local configuration. It sends no
 sampling parameters, no thinking settings and no refusal fallback, so every
-response comes from the named model. A `refusal` stop reason is recorded as
-a failure. On any API error the run stops and writes nothing, so a partial
+response comes from the named model with its default settings. A refusal
+(Anthropic `refusal`, DeepSeek `content_filter`) is recorded as a failure. On any API error the run stops and writes nothing, so a partial
 run is never recorded.
 
 Each run makes one API call per case, plus one follow-up call for each
@@ -70,7 +88,8 @@ Each run writes `results/<UTC timestamp>-<model>.json` and regenerates
 
 - model name, run date (UTC) and repo commit hash (with `-dirty` if tracked
   files outside `evals/results/` had uncommitted changes)
-- `anthropic` and `mcp` package versions and `max_tokens`
+- provider, client library version, `mcp` version and `max_tokens`
+  (Anthropic only; DeepSeek uses its default)
 - per case: pass or fail, the reason, the raw tool calls with their
   arguments, any text the model returned and the stop reason. Destructive
   cases also record the step-1 tool output and the follow-up turn.

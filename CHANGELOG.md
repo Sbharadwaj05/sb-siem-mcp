@@ -142,7 +142,8 @@ Covers every commit after the 0.2.0 entry was written (`4303981`, 11 June
   no xfails left.
 - **Model-behaviour eval (R7).** `evals/` holds 15 cases (9 routing, 3
   output-mode, 3 destructive-flow) and a harness that loads the real server
-  prompt and tool schemas. It needs `EVAL_MODEL` and `ANTHROPIC_API_KEY` and
+  prompt and tool schemas. It runs against Anthropic or DeepSeek, needs
+  `EVAL_MODEL` plus that provider's API key, and
   has no default model. No run has been recorded yet. Install with
   `pip install -e ".[eval]"`.
 - **CI on Python 3.14 (R5),** the version the Docker image ships.

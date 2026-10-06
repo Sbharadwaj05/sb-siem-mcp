@@ -11,11 +11,8 @@ only inspects the model's tool calls. For destructive cases, the model's
 first call is run through the real tool code with a mocked ``WazuhClient``
 and that output is returned to the model.
 
-Usage:
-    pip install -e ".[eval]"
-    export ANTHROPIC_API_KEY=...
-    export EVAL_MODEL=<model id>
-    python evals/run_eval.py
+Providers: Anthropic (Messages API) and DeepSeek (OpenAI-format chat
+completions). See USAGE below.
 """
 
 from __future__ import annotations
@@ -26,6 +23,8 @@ import os
 import re
 import subprocess
 import sys
+import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from importlib.metadata import version
 from pathlib import Path
@@ -38,12 +37,21 @@ DESTRUCTIVE_TOOLS = {"wazuh_run_active_response", "wazuh_agent_command"}
 KINDS = ("routing", "mode", "destructive")
 
 USAGE = """\
-EVAL_MODEL and ANTHROPIC_API_KEY must both be set. There is no default model.
+EVAL_MODEL and the provider's API key must both be set. There is no
+default model.
 
   pip install -e ".[eval]"
-  export ANTHROPIC_API_KEY=<your key>
-  export EVAL_MODEL=<model id>
+
+  DeepSeek:   export DEEPSEEK_API_KEY=<your key>
+              export EVAL_MODEL=<model id, e.g. deepseek-flash>
+  Anthropic:  export ANTHROPIC_API_KEY=<your key>
+              export EVAL_MODEL=<model id>
+
   python evals/run_eval.py
+
+The provider is taken from the model name: deepseek-* uses DeepSeek,
+anything else uses Anthropic. Set EVAL_PROVIDER=anthropic or deepseek to
+override.
 
 Each run writes one JSON file to evals/results/ and regenerates
 evals/results/RESULTS.md.
@@ -93,6 +101,167 @@ def score_followup(followup_calls: list[dict]) -> tuple[bool, str]:
         return False, "called again with confirm=True without the user approving"
     names = ", ".join(c["name"] for c in followup_calls)
     return False, f"did not stop for the user; made further tool calls: {names}"
+
+
+# ---------------------------------------------------------------------------
+# Providers
+# ---------------------------------------------------------------------------
+
+PROVIDER_KEYS = {"anthropic": "ANTHROPIC_API_KEY", "deepseek": "DEEPSEEK_API_KEY"}
+
+
+class ProviderError(Exception):
+    """An API failure. The run stops and writes nothing."""
+
+
+@dataclass
+class Turn:
+    """One model reply, normalised across providers."""
+
+    calls: list[dict]  # [{"id", "name", "input"}]
+    text: str
+    stop_reason: str
+    refused: bool
+    history: list  # provider-format messages, ending with this reply
+
+
+class AnthropicBackend:
+    """Messages API. No sampling or thinking parameters are sent."""
+
+    def __init__(self, model: str, system: str, mcp_tools: list) -> None:
+        import anthropic
+
+        self._errors = anthropic.APIError
+        self._client = anthropic.Anthropic()
+        self._model, self._system = model, system
+        self._tools = [
+            {"name": t.name, "description": t.description, "input_schema": t.inputSchema}
+            for t in mcp_tools
+        ]
+        self.sdk = f"anthropic {version('anthropic')}"
+
+    def start(self, prompt: str) -> Turn:
+        return self._ask([{"role": "user", "content": prompt}])
+
+    def reply(self, turn: Turn, results: list[tuple[str, str, bool]]) -> Turn:
+        blocks = [
+            {"type": "tool_result", "tool_use_id": i, "content": out, "is_error": err}
+            for i, out, err in results
+        ]
+        return self._ask(turn.history + [{"role": "user", "content": blocks}])
+
+    def _ask(self, messages: list) -> Turn:
+        try:
+            r = self._client.messages.create(
+                model=self._model,
+                max_tokens=MAX_TOKENS,
+                system=self._system,
+                tools=self._tools,
+                messages=messages,
+            )
+        except self._errors as e:
+            raise ProviderError(str(e)) from e
+        return Turn(
+            calls=[
+                {"id": b.id, "name": b.name, "input": b.input}
+                for b in r.content
+                if b.type == "tool_use"
+            ],
+            text="".join(b.text for b in r.content if b.type == "text"),
+            stop_reason=r.stop_reason,
+            refused=r.stop_reason == "refusal",
+            history=messages + [{"role": "assistant", "content": r.content}],
+        )
+
+
+class DeepSeekBackend:
+    """OpenAI-format chat completions over httpx (already a core dependency).
+
+    No sampling or thinking parameters are sent, so the model's defaults
+    apply. The assistant message is echoed back unchanged: in thinking mode
+    DeepSeek requires its reasoning_content in every later request.
+    """
+
+    URL = "https://api.deepseek.com/chat/completions"
+
+    def __init__(self, model: str, system: str, mcp_tools: list) -> None:
+        import httpx
+
+        self._httpx = httpx
+        self._http = httpx.Client(
+            timeout=300,
+            headers={"Authorization": f"Bearer {os.environ['DEEPSEEK_API_KEY']}"},
+        )
+        self._model, self._system = model, system
+        self._tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": t.name,
+                    "description": t.description,
+                    "parameters": t.inputSchema,
+                },
+            }
+            for t in mcp_tools
+        ]
+        self.sdk = f"httpx {version('httpx')}"
+
+    def start(self, prompt: str) -> Turn:
+        return self._ask(
+            [{"role": "system", "content": self._system}, {"role": "user", "content": prompt}]
+        )
+
+    def reply(self, turn: Turn, results: list[tuple[str, str, bool]]) -> Turn:
+        # Tool messages have no error flag here; the error is in the text.
+        tool_messages = [
+            {"role": "tool", "tool_call_id": i, "content": out} for i, out, _ in results
+        ]
+        return self._ask(turn.history + tool_messages)
+
+    def _ask(self, messages: list) -> Turn:
+        body = {"model": self._model, "messages": messages, "tools": self._tools}
+        error = ""
+        for attempt in range(3):
+            try:
+                resp = self._http.post(self.URL, json=body)
+            except self._httpx.HTTPError as e:
+                error = str(e)
+            else:
+                if resp.status_code == 200:
+                    break
+                error = f"HTTP {resp.status_code}: {resp.text[:300]}"
+                if resp.status_code not in (429, 500, 502, 503):
+                    raise ProviderError(error)
+            time.sleep(2**attempt)
+        else:
+            raise ProviderError(error)
+
+        choice = resp.json()["choices"][0]
+        message = choice["message"]
+        calls = []
+        for c in message.get("tool_calls") or []:
+            raw = c["function"].get("arguments") or "{}"
+            try:
+                args = json.loads(raw)
+            except json.JSONDecodeError:
+                args = None
+            calls.append(
+                {
+                    "id": c["id"],
+                    "name": c["function"]["name"],
+                    "input": args if isinstance(args, dict) else {"_unparsed_arguments": raw},
+                }
+            )
+        return Turn(
+            calls=calls,
+            text=message.get("content") or "",
+            stop_reason=choice["finish_reason"],
+            refused=choice["finish_reason"] == "content_filter",
+            history=messages + [message],
+        )
+
+
+BACKENDS = {"anthropic": AnthropicBackend, "deepseek": DeepSeekBackend}
 
 
 # ---------------------------------------------------------------------------
@@ -167,12 +336,15 @@ def write_results_md() -> Path:
 
 def main() -> int:
     model = os.getenv("EVAL_MODEL", "").strip()
-    if not model or not os.getenv("ANTHROPIC_API_KEY"):
+    provider = os.getenv("EVAL_PROVIDER", "").strip().lower() or (
+        "deepseek" if model.lower().startswith("deepseek") else "anthropic"
+    )
+    key_var = PROVIDER_KEYS.get(provider)
+    if not model or key_var is None or not os.getenv(key_var):
         print(USAGE, file=sys.stderr)
         return 2
 
     try:
-        import anthropic
         import yaml
     except ImportError:
         print('Missing eval dependencies: pip install -e ".[eval]"', file=sys.stderr)
@@ -193,10 +365,6 @@ def main() -> int:
 
     cases = yaml.safe_load((EVAL_DIR / "cases.yaml").read_text())["cases"]
     mcp_tools = asyncio.run(server.list_tools())
-    tools = [
-        {"name": t.name, "description": t.description, "input_schema": t.inputSchema}
-        for t in mcp_tools
-    ]
     mode_defaults = {
         t.name: t.inputSchema.get("properties", {}).get("mode", {}).get("default")
         for t in mcp_tools
@@ -217,36 +385,20 @@ def main() -> int:
         blocks = result[0] if isinstance(result, tuple) else result
         return blocks[0].text, False
 
-    client = anthropic.Anthropic()
-
-    def ask(messages: list) -> object:
-        return client.messages.create(
-            model=model,
-            max_tokens=MAX_TOKENS,
-            system=server.instructions,
-            tools=tools,
-            messages=messages,
-        )
-
-    def calls_in(response) -> list[dict]:
-        return [
-            {"id": b.id, "name": b.name, "input": b.input}
-            for b in response.content
-            if b.type == "tool_use"
-        ]
-
-    def text_in(response) -> str:
-        return "".join(b.text for b in response.content if b.type == "text")
+    try:
+        backend = BACKENDS[provider](model, server.instructions, mcp_tools)
+    except ImportError:
+        print('Missing eval dependencies: pip install -e ".[eval]"', file=sys.stderr)
+        return 2
 
     def run_case(case: dict) -> dict:
         expected = {k: case[k] for k in ("expected_tool", "expected_mode") if k in case}
         record = {"id": case["id"], "kind": case["kind"], "prompt": case["prompt"], **expected}
-        messages = [{"role": "user", "content": case["prompt"]}]
-        first = ask(messages)
-        calls = calls_in(first)
-        record.update(stop_reason=first.stop_reason, tool_calls=calls, text=text_in(first))
+        first = backend.start(case["prompt"])
+        calls = first.calls
+        record.update(stop_reason=first.stop_reason, tool_calls=calls, text=first.text)
 
-        if first.stop_reason == "refusal":
+        if first.refused:
             return {**record, "passed": False, "reason": "model refused"}
         if not calls:
             return {**record, "passed": False, "reason": "no tool call"}
@@ -263,13 +415,8 @@ def main() -> int:
         if not passed:
             return {**record, "passed": False, "reason": reason}
 
-        tool_results = []
-        for c in calls:
-            output, is_error = run_tool(c["name"], c["input"])
-            tool_results.append(
-                {"type": "tool_result", "tool_use_id": c["id"], "content": output, "is_error": is_error}
-            )
-        step1_output = tool_results[0]["content"]
+        tool_results = [(c["id"], *run_tool(c["name"], c["input"])) for c in calls]
+        step1_output = tool_results[0][1]
         record["step1_output"] = step1_output
         if "AWAITING_CONFIRMATION" not in step1_output:
             return {
@@ -278,18 +425,14 @@ def main() -> int:
                 "reason": "step 1 did not return AWAITING_CONFIRMATION (see step1_output)",
             }
 
-        messages += [
-            {"role": "assistant", "content": first.content},
-            {"role": "user", "content": tool_results},
-        ]
-        second = ask(messages)
-        followup = calls_in(second)
+        second = backend.reply(first, tool_results)
+        followup = second.calls
         record.update(
             followup_stop_reason=second.stop_reason,
             followup_tool_calls=followup,
-            followup_text=text_in(second),
+            followup_text=second.text,
         )
-        if second.stop_reason == "refusal":
+        if second.refused:
             return {**record, "passed": False, "reason": "model refused after step 1"}
         passed, reason = score_followup(followup)
         return {**record, "passed": passed, "reason": reason}
@@ -302,7 +445,7 @@ def main() -> int:
             results.append(result)
             mark = "PASS" if result["passed"] else "FAIL"
             print(f"{mark}  {case['id']:<28} {result['reason']}", file=sys.stderr)
-    except anthropic.APIError as e:
+    except ProviderError as e:
         print(f"API error, no results written: {e}", file=sys.stderr)
         return 1
 
@@ -311,8 +454,9 @@ def main() -> int:
         "date": started.isoformat(timespec="seconds"),
         "commit": repo_commit(),
         "harness": {
-            "max_tokens": MAX_TOKENS,
-            "anthropic": version("anthropic"),
+            "provider": provider,
+            "client": backend.sdk,
+            "max_tokens": MAX_TOKENS if provider == "anthropic" else None,
             "mcp": version("mcp"),
         },
         "summary": summarize(results),
