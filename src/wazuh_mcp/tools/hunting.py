@@ -293,7 +293,10 @@ def register_hunting(mcp: FastMCP, client: WazuhClient) -> None:
         limit = validate_limit(limit, max_limit=200)
         offset = validate_offset(offset)
 
-        select_m = get_select_for_mode(mode)
+        # The output-mode field lists are alert fields, which /mitre/techniques
+        # rejects ("Not a valid select field"). Triage gets a short MITRE
+        # field list; any other mode returns the full technique objects.
+        select_m = "external_id,name,tactics" if mode == "triage" else None
         data = await client.mitre(
             search=search,
             technique_id=technique_id,

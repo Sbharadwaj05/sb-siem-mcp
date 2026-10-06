@@ -80,15 +80,11 @@ def register_manager(mcp: FastMCP, client: WazuhClient) -> None:
             description="Return token-efficient compact output",
         ),
     ) -> str:
-        if include_nodes:
-            nodes_data = await client.cluster_nodes()
-            try:
-                status_data = await client.cluster_status()
-            except Exception:
-                status_data = {}
-        else:
-            nodes_data = {}
-            status_data = await client.cluster_status()
+        status_data = await client.cluster_status()
+        # A single-node manager reports {"enabled": "no", "running": "no"},
+        # and /cluster/nodes then fails with "Cluster is not running".
+        running = isinstance(status_data, dict) and status_data.get("running") == "yes"
+        nodes_data = await client.cluster_nodes() if include_nodes and running else {}
 
         result = {
             "cluster_status": status_data,
