@@ -26,9 +26,9 @@ Covers every commit after the 0.2.0 entry was written (`4303981`, 11 June
   (`7595aae`)
 - **MCP server binds to localhost by default.** The Dockerfile and
   `docker-compose.yml` set `WAZUH_MCP_HOST=127.0.0.1` (was `0.0.0.0`), and
-  `main_sse()` defaults to it. See Known issues: SSE mode does not start in
-  this release, and inside the container this bind is not reachable through
-  the published port. (`b7e3596`)
+  `main_sse()` defaults to it. (`b7e3596`) SSE mode itself only starts
+  from October 2026, see below; inside the Docker container this bind is
+  still not reachable through the published port (Known issues).
 - The demo `docker-compose.yml` sets `WAZUH_INSECURE=false`. (`7595aae`)
 
 ### Fixed
@@ -90,11 +90,31 @@ Covers every commit after the 0.2.0 entry was written (`4303981`, 11 June
   `offset += limit` skipped the rest. The envelope's `items` now keep the
   size the caller asked for; lists inside each item are still capped.
   Affects every list tool with `compact_output=true`.
+- **Fix: built-in RBAC roles are cumulative.** `ROLE_TOOLS` held only each
+  tier's additions, so `soc` could run active responses but not list
+  alerts. Roles now include every tool of the tiers below: viewer 14,
+  analyst 22, admin 26, soc 28.
+- **Fix: active-response `arguments` reach the tool.** The parameter was
+  typed `Optional[str]`; FastMCP decodes any JSON string for a parameter
+  not typed exactly `str`, so the documented `'["srcip", "10.0.0.50", "-"]'`
+  became a list and failed validation. Every active response that needs
+  arguments was impossible through MCP. It is now `Optional[List[str]]`, so
+  the JSON string and a real array both work.
+- **Fix: ID validators reject a trailing newline.** `re.match` with `$`
+  accepted `"001\n"`; the seven anchored validators now use `re.fullmatch`.
+- **Fix: SSE mode starts.** `main_sse()` passed `host` and `port` to
+  `FastMCP.run()`, which does not accept them, and raised `TypeError`.
+  They are now set on `mcp.settings`.
+- **Fix: Prometheus `/metrics` binds to `WAZUH_MCP_HOST`** (default
+  `127.0.0.1`). `prometheus_client` binds every interface unless given an
+  address, so in SSE mode `/metrics` listened on `0.0.0.0` while the MCP
+  endpoint was on loopback.
 - **Safety-layer tests (R6).** `tests/test_safety_layer.py` runs the real
   tools through `FastMCP.call_tool` with only `WazuhClient` mocked:
-  confirmation gate, RBAC, rate limiting, validators and sanitizer. The
-  suite grows from 26 to 84 passing tests (including the issue #7 regression tests), plus 10 strict xfails that
-  document the known issues below.
+  confirmation gate, RBAC, rate limiting, validators, sanitizer and the SSE
+  entry point. The four defects above were first committed as strict
+  xfails, then fixed. The suite grows from 26 to 95 passing tests, with
+  no xfails left.
 - **Model-behaviour eval (R7).** `evals/` holds 15 cases (9 routing, 3
   output-mode, 3 destructive-flow) and a harness that loads the real server
   prompt and tool schemas. It needs `EVAL_MODEL` and `ANTHROPIC_API_KEY` and
@@ -105,16 +125,6 @@ Covers every commit after the 0.2.0 entry was written (`4303981`, 11 June
 
 ### Known issues
 
-Each has a strict xfail test in `tests/test_safety_layer.py` unless noted.
-
-- Built-in RBAC roles are not cumulative: each role holds only its own
-  tier's tools.
-- `wazuh_run_active_response` rejects every `arguments` value sent through
-  MCP: FastMCP decodes the JSON array string into a list, then fails string
-  validation.
-- The ID validators accept a trailing newline (`"001\n"`).
-- SSE mode raises `TypeError` on start: `FastMCP.run()` does not accept
-  `host` or `port`.
 - Inside the Docker demo, the loopback bind is not reachable through the
   published port 8000. Not covered by a test.
 - Indexer hit counts stop at 10,000 (OpenSearch's default

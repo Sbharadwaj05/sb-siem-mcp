@@ -9,9 +9,9 @@ FastMCP's argument handling and the tool body all execute. Only the Wazuh
 client is mocked, and assertions are made on what the tool returned and on
 how the client was called, never on a mock's own return value.
 
-Tests marked ``xfail(strict=True)`` document real defects found while
-writing this file. They are left unfixed on purpose and will start
-failing (XPASS) once the defect is fixed, so the marker gets removed.
+Defects found while writing this file were first committed as
+``xfail(strict=True)`` tests and fixed afterwards; git history shows the
+order.
 """
 
 from __future__ import annotations

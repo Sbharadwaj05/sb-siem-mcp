@@ -379,34 +379,19 @@ elsewhere in this README, this section is correct.
   `tests/test_safety_layer.py`)
 - Pending confirmations are held in memory and cleared on restart.
   (`_pending_confirmations` in `response.py`)
-- `wazuh_run_active_response` cannot receive `arguments` through MCP.
-  FastMCP decodes the JSON array string into a list, then rejects it as not
-  a string, so active responses that need arguments (such as `firewall-drop`
-  with a source IP) fail. (`test_json_array_arguments_reach_the_tool`, strict
-  xfail)
 - Whether a model stops at the confirmation prompt is measured by the eval
   in `evals/`. Recorded runs are listed in `evals/results/RESULTS.md`.
 
-**Access control and input**
+**Access control**
 
 - RBAC is off unless `WAZUH_RBAC_ROLE` is set. `WAZUH_RBAC_POLICY` on its
   own loads a policy but restricts nothing. (`test_rbac_is_off_by_default`,
   `test_policy_without_role_allows_everything`)
-- The built-in roles are not cumulative: each role holds only its own tier's
-  tools, so, for example, `soc` cannot call `wazuh_manager_stats`.
-  (`test_built_in_roles_are_cumulative`, strict xfail)
 - The MCP endpoint has no built-in client authentication. (`FastMCP(...)` in
   `src/wazuh_mcp/server.py` is created without an auth provider)
-- The ID validators accept a trailing newline, for example `"001\n"`.
-  (`test_rejects_trailing_newline`, strict xfail)
 
-**SSE mode, Docker and observability**
+**Docker and observability**
 
-- SSE mode does not start: `main_sse()` passes `host` and `port` to
-  `FastMCP.run()`, which does not accept them, and raises `TypeError`. SSE
-  is the Docker image's default entrypoint. stdio mode
-  (`python -m wazuh_mcp.server`), used by Claude Desktop, Zed and Cursor, is
-  not affected. (`test_main_sse_starts_bound_to_localhost`, strict xfail)
 - `docker-compose.yml` sets `WAZUH_MCP_HOST=127.0.0.1`, which binds the
   loopback interface inside the container; the published port `8000:8000`
   cannot reach it. Not covered by a test.
