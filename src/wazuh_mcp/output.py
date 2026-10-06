@@ -164,17 +164,24 @@ def compact(data: Any, *, max_items: int = 10) -> Any:
     """
     Produce a token-efficient version of a Wazuh API response.
 
-    - Limits arrays to max_items
+    - Limits arrays to max_items, except the ``items`` of a paginated
+      envelope, which the caller already sized with ``limit``
     - Strips verbose metadata fields
     - Truncates long string values
     - Replaces repeated structures with summary counts
     """
     if isinstance(data, dict):
+        # Capping a paginated envelope's items would silently drop results
+        # while count and has_more still describe the full page (issue #7).
+        envelope = isinstance(data.get("items"), list) and "limit" in data
         compacted: Dict[str, Any] = {}
         for key, value in data.items():
             if key in _VERBOSE_META:
                 continue
-            compacted[key] = compact(value, max_items=max_items)
+            if envelope and key == "items":
+                compacted[key] = [compact(item, max_items=max_items) for item in value]
+            else:
+                compacted[key] = compact(value, max_items=max_items)
         return compacted
 
     if isinstance(data, list):

@@ -83,10 +83,17 @@ Covers every commit after the 0.2.0 entry was written (`4303981`, 11 June
   the other. The token now records the issuing tool, execution is refused
   unless tool, `agent_id`, `command` and `arguments` all match, and a
   rejected attempt consumes the token.
+- **Fix: `compact_output` no longer drops requested results (issue #7).**
+  `compact()` cut every list to 10 entries, including the `items` of a
+  paginated response, while `count` and `has_more` still described the full
+  page. A caller asking for `limit=50` got 10 results, and paging by
+  `offset += limit` skipped the rest. The envelope's `items` now keep the
+  size the caller asked for; lists inside each item are still capped.
+  Affects every list tool with `compact_output=true`.
 - **Safety-layer tests (R6).** `tests/test_safety_layer.py` runs the real
   tools through `FastMCP.call_tool` with only `WazuhClient` mocked:
   confirmation gate, RBAC, rate limiting, validators and sanitizer. The
-  suite grows from 26 to 82 passing tests, plus 10 strict xfails that
+  suite grows from 26 to 84 passing tests (including the issue #7 regression tests), plus 10 strict xfails that
   document the known issues below.
 - **Model-behaviour eval (R7).** `evals/` holds 15 cases (9 routing, 3
   output-mode, 3 destructive-flow) and a harness that loads the real server
@@ -110,6 +117,9 @@ Each has a strict xfail test in `tests/test_safety_layer.py` unless noted.
   `host` or `port`.
 - Inside the Docker demo, the loopback bind is not reachable through the
   published port 8000. Not covered by a test.
+- Indexer hit counts stop at 10,000 (OpenSearch's default
+  `track_total_hits`), so `total` and "Found N alert(s)" are a lower bound
+  above that. Not covered by a test.
 
 ## [0.2.0] — 2026-06-11
 

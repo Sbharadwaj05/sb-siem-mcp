@@ -99,7 +99,6 @@ class TestAgentSelectFields:
 class TestCompactKeepsRequestedItems:
     """Issue #7 — compact_output cut items to 10 while count still said 50."""
 
-    @pytest.mark.xfail(strict=True, reason="issue #7: compact() caps the envelope's items")
     @pytest.mark.asyncio
     async def test_list_alerts_compact_returns_every_requested_item(self):
         client = AsyncMock(spec=WazuhClient)
