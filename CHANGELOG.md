@@ -170,6 +170,24 @@ Covers every commit after the 0.2.0 entry was written (`4303981`, 11 June
   every count. Disconnected agents also reported `last_keepalive: null`,
   because the code read `last_keepalive` and the API field is
   `lastKeepAlive`.
+- **Prompt revision: the user approves destructive actions, not the
+  model.** On the June wording, deepseek-flash stopped for the user in 2 of
+  9 destructive eval cases (three runs) and confirmed the action itself in
+  the other 7. The transcripts gave two reasons: the original request was
+  approval, or the action was harmless. None of the three surfaces (server
+  prompt, tool and `confirm` descriptions, step-1 output) said a human
+  approves, and the step-1 output handed the model the exact confirm call.
+
+  All three were reworded together, in plain wording with no added
+  emphasis. The gate logic did not change, and the token is still in the
+  output. Measured on the revision over three runs:
+  - destructive 9/9, up from 2/9;
+  - routing 24/27, against 25/27 before (one case, within run-to-run
+    noise);
+  - mode 8/9, up from 6/9.
+
+  A prompt rule is not a control: the token is still visible to the
+  model. Full text and scores per version are in `evals/PROMPT_HISTORY.md`.
 - **Safety-layer tests (R6).** `tests/test_safety_layer.py` runs the real
   tools through `FastMCP.call_tool` with only `WazuhClient` mocked:
   confirmation gate, RBAC, rate limiting, validators, sanitizer and the SSE
@@ -192,6 +210,9 @@ Covers every commit after the 0.2.0 entry was written (`4303981`, 11 June
     vulnerability fix. In all three destructive cases the model confirmed
     the action itself with the returned token. The token gate alone does
     not stop a model; human approval has to come from the client.
+
+  Five more runs followed for the prompt revision above: two baseline runs
+  and three on the revision.
 
   Install with
   `pip install -e ".[eval]"`.

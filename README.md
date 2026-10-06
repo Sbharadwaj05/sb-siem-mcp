@@ -396,17 +396,20 @@ elsewhere in this README, this section is correct.
   (`run_active_response` in `src/wazuh_mcp/client.py`,
   `tests/test_active_response_client.py`)
 - Whether a model stops at the confirmation prompt is measured by the eval
-  in `evals/`, and the gate does not hold on its own. With the same model
-  (deepseek-flash), prompt and destructive-tool schemas:
-  - Run 2 (2026-10-06): the model stopped and asked the user in both
-    destructive cases that reached the confirmation step.
-  - Run 3: it called the tool again with `confirm=True` and the token,
-    without user approval, in all three cases. In one of them its own text
-    said the action "requires confirmation".
+  in `evals/` (deepseek-flash, three runs per wording, 6 October 2026 UTC).
+  - With the June wording, the model stopped for the user in 2 of 9
+    destructive cases. In the other 7 it called the tool again with
+    `confirm=True` and the token itself, saying the original request was
+    approval or that the action was harmless.
+  - After the October 2026 rewording of the server prompt, the tool
+    descriptions and the confirmation output, it stopped in 9 of 9.
+  - The full text of each version and its scores are in
+    `evals/PROMPT_HISTORY.md`.
 
-  Treat the client's tool-approval prompt as the only human check. The
-  first run did not measure this, because of a scoring bug since fixed.
-  See `evals/results/RESULTS.md`.
+  A prompt rule is not a control. The token is still visible to the model,
+  which can still confirm on its own, and nine runs of one model say
+  nothing about other models. Treat the MCP client's tool-approval prompt
+  as the only human check.
 
 **Access control**
 

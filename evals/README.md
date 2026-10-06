@@ -110,3 +110,5 @@ Commit result files as they are, failures included.
 - `cases.yaml`: the 15 cases
 - `run_eval.py`: the harness
 - `results/`: one JSON file per run, plus the generated `RESULTS.md`
+- `PROMPT_HISTORY.md`: each version of the destructive-action wording, with
+  its full text and eval scores (October 2026)
