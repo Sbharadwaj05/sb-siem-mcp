@@ -114,6 +114,19 @@ Covers every commit after the 0.2.0 entry was written (`4303981`, 11 June
   `127.0.0.1`). `prometheus_client` binds every interface unless given an
   address, so in SSE mode `/metrics` listened on `0.0.0.0` while the MCP
   endpoint was on loopback.
+- **Fix: active response works on Wazuh 4.x.** Found by running the tools
+  against a live Wazuh 4.14.8 manager. The client sent `agent_id` and
+  `custom` in the body of `PUT /active-response`, which 4.x rejects with
+  "Invalid field found {'agent_id', 'custom'}", so neither destructive
+  tool had ever executed anything on 4.x. Agents are now targeted with the
+  `agents_list` query parameter. The documented `["srcip", "<ip>", ...]`
+  argument is also passed as `alert.data.srcip`, which is where 4.x
+  active-response scripts read the IP, after IPv4 validation.
+  `wazuh_agent_command` runs `!<script>` (an active-response script on the
+  agent, by name). API errors now include Wazuh's per-agent reason, for
+  example "The command used is not defined in the configuration." Checked
+  live: `!host-deny` with `srcip` 10.0.0.54 wrote `ALL:10.0.0.54` to the
+  agent's `/etc/hosts.deny`.
 - **Fix: `wazuh_agent_health` counts agree.** `/agents` includes the
   manager as agent 000 and `/agents/summary/status` does not, so
   `total_agents` and `os_breakdown` counted one more agent than
@@ -125,7 +138,7 @@ Covers every commit after the 0.2.0 entry was written (`4303981`, 11 June
   tools through `FastMCP.call_tool` with only `WazuhClient` mocked:
   confirmation gate, RBAC, rate limiting, validators, sanitizer and the SSE
   entry point. The four defects above were first committed as strict
-  xfails, then fixed. The suite grows from 26 to 97 passing tests, with
+  xfails, then fixed. The suite grows from 26 to 102 passing tests, with
   no xfails left.
 - **Model-behaviour eval (R7).** `evals/` holds 15 cases (9 routing, 3
   output-mode, 3 destructive-flow) and a harness that loads the real server
