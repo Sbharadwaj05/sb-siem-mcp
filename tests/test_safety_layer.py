@@ -22,7 +22,6 @@ from unittest.mock import AsyncMock
 
 import pytest
 from mcp.server.fastmcp import FastMCP
-from mcp.server.fastmcp.exceptions import ToolError
 
 from wazuh_mcp import audit, rate_limiter, rbac, safe_tool
 from wazuh_mcp.client import WazuhClient
@@ -309,52 +308,46 @@ class TestConfirmationGateAcrossTools:
         client.run_active_response.assert_not_called()
 
     async def test_token_rejected_when_arguments_differ(self, server, client):
-        # Called below FastMCP: see test_json_array_arguments_reach_the_tool
-        # for why an arguments value cannot get through call_tool today.
-        fn = server._tool_manager.get_tool(ACTIVE_RESPONSE).fn
-        common = dict(agent_id="001", command="firewall-drop", compact_output=False)
+        common = dict(agent_id="001", command="firewall-drop")
+        token = (
+            await call(server, ACTIVE_RESPONSE, **common, arguments='["srcip", "10.0.0.50", "-"]')
+        )["confirmation_token"]
 
-        issued = parse(
-            await fn(
-                **common,
-                arguments='["srcip", "10.0.0.50", "-"]',
-                confirm=False,
-                confirmation_token=None,
-            )
-        )
-        payload = parse(
-            await fn(
-                **common,
-                arguments='["srcip", "10.0.0.99", "-"]',
-                confirm=True,
-                confirmation_token=issued["confirmation_token"],
-            )
+        payload = await call(
+            server,
+            ACTIVE_RESPONSE,
+            **common,
+            arguments='["srcip", "10.0.0.99", "-"]',
+            confirm=True,
+            confirmation_token=token,
         )
 
         assert "different action" in payload["error"]
         client.run_active_response.assert_not_called()
 
-    @pytest.mark.xfail(
-        strict=True,
-        raises=ToolError,
-        reason=(
-            "FastMCP pre-parses any str argument whose annotation is not exactly "
-            "`str`. `arguments` is Optional[str], so the documented JSON array "
-            "string is turned into a list and then fails str validation. "
-            "Active responses that need arguments (firewall-drop srcip) cannot "
-            "be requested through MCP."
-        ),
+    @pytest.mark.parametrize(
+        "arguments",
+        ['["srcip", "10.0.0.50", "-"]', ["srcip", "10.0.0.50", "-"]],
+        ids=["json-string", "list"],
     )
-    async def test_json_array_arguments_reach_the_tool(self, server, client):
+    async def test_arguments_reach_the_client(self, server, client, arguments):
+        """The documented JSON array string and a real array both work."""
+        common = dict(agent_id="003", command="firewall-drop", arguments=arguments)
+        issued = await call(server, ACTIVE_RESPONSE, **common)
+        assert issued["status"] == "AWAITING_CONFIRMATION"
+
         payload = await call(
             server,
             ACTIVE_RESPONSE,
-            agent_id="001",
-            command="firewall-drop",
-            arguments='["srcip", "10.0.0.50", "-"]',
+            **common,
+            confirm=True,
+            confirmation_token=issued["confirmation_token"],
         )
 
-        assert payload["status"] == "AWAITING_CONFIRMATION"
+        assert payload["status"] == "EXECUTED"
+        client.run_active_response.assert_awaited_once_with(
+            agent_id="003", command="firewall-drop", arguments=["srcip", "10.0.0.50", "-"]
+        )
 
 
 # ---------------------------------------------------------------------------

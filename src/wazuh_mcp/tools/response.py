@@ -13,7 +13,6 @@ Active response & incident response tools.
 
 from __future__ import annotations
 
-import json
 import secrets
 import time
 from typing import List, Optional
@@ -107,7 +106,7 @@ def register_response(mcp: FastMCP, client: WazuhClient) -> None:
                 "- Custom scripts defined in ossec.conf"
             ),
         ),
-        arguments: Optional[str] = types.Field(
+        arguments: Optional[List[str]] = types.Field(
             default=None,
             description=(
                 "Command arguments as a JSON array string, e.g., "
@@ -136,24 +135,15 @@ def register_response(mcp: FastMCP, client: WazuhClient) -> None:
         # --- input validation ---
         validate_agent_id(agent_id)
         validate_soft_text(command, param_name="command")
-        if arguments is not None:
-            validate_soft_text(arguments, param_name="arguments")
+        for arg in arguments or []:
+            validate_soft_text(arg, param_name="arguments")
         if confirmation_token is not None:
             validate_soft_text(confirmation_token, param_name="confirmation_token")
 
-        # Parse arguments if provided as JSON string
-        parsed_args: Optional[List[str]] = None
-        if arguments:
-            try:
-                parsed_args = json.loads(arguments)
-                if not isinstance(parsed_args, list):
-                    return format_json(
-                        {
-                            "error": 'arguments must be a JSON array, e.g., \'["srcip", "10.0.0.50"]\''
-                        }
-                    )
-            except json.JSONDecodeError:
-                return format_json({"error": f"Invalid JSON in arguments: {arguments}"})
+        # FastMCP decodes the documented JSON array string into a list before
+        # validation, so a JSON string and a real array both arrive here as a
+        # list. Typing this Optional[str] made FastMCP reject both.
+        parsed_args: Optional[List[str]] = arguments
 
         # Build action description for confirmation
         action_desc = f"Active response: '{command}' on agent {agent_id}"
