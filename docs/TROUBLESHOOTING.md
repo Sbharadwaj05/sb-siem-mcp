@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-Everything we learned getting Wazuh MCP Server to 100% operational on Wazuh 4.14.5.
+Issues we hit, and how we fixed them, while getting Wazuh MCP Server working against Wazuh 4.14.5.
 
 ---
 

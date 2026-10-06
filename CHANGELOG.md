@@ -4,7 +4,7 @@ All notable changes to the sb-siem-mcp project.
 
 ## [0.2.0] — 2026-06-11
 
-### Production-Hardened: 28/28 Tools Operational (100%)
+### Hardening release: 28 tools, tested against Wazuh 4.14.5
 
 Verified against Wazuh 4.14.5 on Ubuntu 22.04 with real agents, 7,514 alerts, 12 CVEs, 5,038 FIM records.
 

@@ -9,7 +9,7 @@
 <p align="center">
   <a href="https://github.com/Sbharadwaj05/sb-siem-mcp/actions/workflows/ci.yml"><img src="https://github.com/Sbharadwaj05/sb-siem-mcp/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/Sbharadwaj05/sb-siem-mcp/actions/workflows/security-scan.yml"><img src="https://github.com/Sbharadwaj05/sb-siem-mcp/actions/workflows/security-scan.yml/badge.svg" alt="Security Scan"></a>
-  <img src="https://img.shields.io/badge/tools-28%20%2F%2028%20operational-brightgreen" alt="28/28 tools">
+  <img src="https://img.shields.io/badge/tools-28-blue" alt="28 tools">
   <img src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue" alt="Python">
   <a href="https://github.com/Sbharadwaj05/sb-siem-mcp/blob/master/LICENSE"><img src="https://img.shields.io/github/license/Sbharadwaj05/sb-siem-mcp" alt="License: MIT"></a>
 </p>
