@@ -18,6 +18,8 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from wazuh_mcp import __version__
+
 logger = logging.getLogger("wazuh-mcp.openapi")
 
 # ---------------------------------------------------------------------------
@@ -273,7 +275,7 @@ TOOL_SCHEMAS: Dict[str, Dict[str, Any]] = {
 
 def generate_openapi_spec(
     title: str = "Wazuh MCP Server API",
-    version: str = "0.2.0",
+    version: str = __version__,
     server_url: str = "http://localhost:8000",
 ) -> Dict[str, Any]:
     """

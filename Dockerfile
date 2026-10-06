@@ -20,7 +20,7 @@ FROM python:3.14-slim AS runtime
 
 LABEL org.opencontainers.image.title="Wazuh MCP Server"
 LABEL org.opencontainers.image.description="AI-powered security operations for Wazuh SIEM/XDR"
-LABEL org.opencontainers.image.version="0.2.0"
+LABEL org.opencontainers.image.version="0.2.1"
 LABEL org.opencontainers.image.source="https://github.com/Sbharadwaj05/sb-siem-mcp"
 
 # Create non-root user
