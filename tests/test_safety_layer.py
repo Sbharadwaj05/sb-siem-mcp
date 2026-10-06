@@ -208,7 +208,6 @@ class TestConfirmationGate:
         assert "expired" in payload["error"]
         client.run_active_response.assert_not_called()
 
-    @pytest.mark.xfail(strict=True, reason="R10: token not yet bound to the action")
     async def test_token_for_agent_a_rejected_on_agent_b(self, server, client, tool):
         token = await request_token(server, tool, agent_id="001")
 
@@ -224,7 +223,6 @@ class TestConfirmationGate:
         assert "different action" in payload["error"]
         client.run_active_response.assert_not_called()
 
-    @pytest.mark.xfail(strict=True, reason="R10: token not yet bound to the action")
     async def test_token_for_command_x_rejected_on_command_y(
         self, server, client, tool
     ):
@@ -242,7 +240,6 @@ class TestConfirmationGate:
         assert "different action" in payload["error"]
         client.run_active_response.assert_not_called()
 
-    @pytest.mark.xfail(strict=True, reason="R10: token not yet bound to the action")
     async def test_rejected_attempt_still_consumes_token(self, server, client, tool):
         token = await request_token(server, tool, agent_id="001")
         await call(
@@ -290,7 +287,6 @@ class TestConfirmationGate:
 
 @pytest.mark.asyncio
 class TestConfirmationGateAcrossTools:
-    @pytest.mark.xfail(strict=True, reason="R10: token not yet bound to the action")
     @pytest.mark.parametrize(
         "issued_by, used_on",
         [(ACTIVE_RESPONSE, AGENT_COMMAND), (AGENT_COMMAND, ACTIVE_RESPONSE)],
@@ -312,7 +308,6 @@ class TestConfirmationGateAcrossTools:
         assert "different action" in payload["error"]
         client.run_active_response.assert_not_called()
 
-    @pytest.mark.xfail(strict=True, reason="R10: token not yet bound to the action")
     async def test_token_rejected_when_arguments_differ(self, server, client):
         # Called below FastMCP: see test_json_array_arguments_reach_the_tool
         # for why an arguments value cannot get through call_tool today.

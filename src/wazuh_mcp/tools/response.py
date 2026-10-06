@@ -40,6 +40,31 @@ def _generate_token(action_desc: str) -> str:
     return secrets.token_hex(16)
 
 
+_TOKEN_MISMATCH_ERROR = (
+    "confirmation_token was issued for a different action (tool, agent_id, "
+    "command or arguments differ). It has been invalidated and nothing was "
+    "executed. Call without confirm=True to get a fresh token for the action "
+    "you intend to run."
+)
+
+
+def _issued_for_other_action(
+    pending: dict,
+    tool: str,
+    agent_id: str,
+    command: str,
+    arguments: Optional[List[str]],
+) -> bool:
+    """True unless the token was issued for exactly this tool and action."""
+    issued = (
+        pending.get("tool"),
+        pending.get("agent_id"),
+        pending.get("command"),
+        pending.get("arguments"),
+    )
+    return issued != (tool, agent_id, command, arguments)
+
+
 def register_response(mcp: FastMCP, client: WazuhClient) -> None:
     """Register all active-response tools (with safety confirmation)."""
 
@@ -139,6 +164,7 @@ def register_response(mcp: FastMCP, client: WazuhClient) -> None:
         if not confirm:
             token = _generate_token(action_desc)
             _pending_confirmations[token] = {
+                "tool": "wazuh_run_active_response",
                 "agent_id": agent_id,
                 "command": command,
                 "arguments": parsed_args,
@@ -185,6 +211,11 @@ def register_response(mcp: FastMCP, client: WazuhClient) -> None:
                     "Call without confirm=True to get a fresh token."
                 }
             )
+
+        if _issued_for_other_action(
+            pending, "wazuh_run_active_response", agent_id, command, parsed_args
+        ):
+            return format_json({"error": _TOKEN_MISMATCH_ERROR})
 
         # --- EXECUTE ---
         result = await client.run_active_response(
@@ -253,8 +284,10 @@ def register_response(mcp: FastMCP, client: WazuhClient) -> None:
         if not confirm:
             token = _generate_token(action_desc)
             _pending_confirmations[token] = {
+                "tool": "wazuh_agent_command",
                 "agent_id": agent_id,
                 "command": command,
+                "arguments": None,
                 "created_at": time.time(),
                 "expires_at": time.time() + 300,
             }
@@ -287,6 +320,11 @@ def register_response(mcp: FastMCP, client: WazuhClient) -> None:
                     "Call without confirm=True to get a fresh token."
                 }
             )
+
+        if _issued_for_other_action(
+            pending, "wazuh_agent_command", agent_id, command, None
+        ):
+            return format_json({"error": _TOKEN_MISMATCH_ERROR})
 
         # --- EXECUTE ---
         result = await client.run_active_response(
